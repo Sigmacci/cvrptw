@@ -18,14 +18,24 @@
 #define RECEIVER_TIME_WINDOW_END_PARAM 5
 #define RECEIVER_SERVICE_TIME_PARAM 6
 
-int eval_time(std::vector<int> vehicle, std::vector<int> receiver)
+int time_to_arrive(std::vector<int> vehicle, std::vector<int> receiver);
+void heapify(std::vector<std::vector<int>> M, std::vector<double> coefficient, int n, int i);
+void heapsort(std::vector<std::vector<int>> M, std::vector<double> coefficient, int n);
+int greedy(std::vector<std::vector<int>> vehicles, std::vector<std::vector<int>> receivers);
+
+int main(int argc, char *argv[])
 {
-    return vehicle[VEHICLE_TIME_PARAM] + 
-        sqrt(pow(vehicle[VEHICLE_X_CORD_PARAM] - receiver[RECEIVER_X_CORD_PARAM], 2) +
-            pow(vehicle[VEHICLE_Y_CORD_PARAM] - receiver[RECEIVER_Y_CORD_PARAM], 2));
+    std::vector<std::vector<int>> vehicles;
+    std::vector<std::vector<int>> receivers;
 }
 
-void heapify(std::vector<std::vector<int>> M, double coefficient[], int n, int i)
+int time_to_arrive(std::vector<int> vehicle, std::vector<int> receiver)
+{
+    return static_cast<int>(sqrt(pow(vehicle[VEHICLE_X_CORD_PARAM] - receiver[RECEIVER_X_CORD_PARAM], 2) +
+            pow(vehicle[VEHICLE_Y_CORD_PARAM] - receiver[RECEIVER_Y_CORD_PARAM], 2)));
+}
+
+void heapify(std::vector<std::vector<int>> M, std::vector<double> coefficient, int n, int i)
 {
 	int min = i;
 	int left = 2 * i + 1;
@@ -42,7 +52,7 @@ void heapify(std::vector<std::vector<int>> M, double coefficient[], int n, int i
 	}
 }
 
-void heapsort(std::vector<std::vector<int>> M, double coefficient[], int n)
+void heapsort(std::vector<std::vector<int>> M, std::vector<double> coefficient, int n)
 {
 	for (int i = n / 2 - 1; i >= 0; i--)
 	{
@@ -56,39 +66,48 @@ void heapsort(std::vector<std::vector<int>> M, double coefficient[], int n)
 	}
 }
 
-int *greedy(std::vector<std::vector<int>> vehicles, std::vector<std::vector<int>> receivers)
+int greedy(std::vector<std::vector<int>> vehicles, std::vector<std::vector<int>> receivers)
 {
-    double coefficient[receivers.size()];
-    for (int i = 0; i < receivers.size(); i++)
+    std::vector<double> coefficients;
+    std::vector<std::vector<int>> receivers_copy;
+    std::copy(receivers, receivers_copy, receivers.size());
+    int i = 0, j = 0;
+    while (i < receivers_copy.size())
     {
-        coefficient[i] = receivers[i][RECEIVER_DEMAND_PARAM] / eval_time(vehicles[0], receivers[i]);
-    }
-    heapsort(receivers, coefficient, receivers.size());
-    int i = 0;
-    int j = 0;
-    int *k = new int[vehicles.size()];
-    while (i < receivers.size())
-    {
-        if (vehicles[j][VEHICLE_CAPACITY_PARAM] >= receivers[i][RECEIVER_DEMAND_PARAM] &&
-            vehicles[j][VEHICLE_TIME_PARAM] + eval_time(vehicles[j], receivers[i]) <= receivers[i][RECEIVER_TIME_WINDOW_END_PARAM])
+        for (int k = 0; k < receivers_copy.size(); k++)
         {
-            vehicles[j][VEHICLE_CAPACITY_PARAM] -= receivers[i][RECEIVER_DEMAND_PARAM];
-            vehicles[j][VEHICLE_TIME_PARAM] += eval_time(vehicles[j], receivers[i]) + receivers[i][RECEIVER_SERVICE_TIME_PARAM];
-            i++;
+            coefficients.push_back(time_to_arrive(vehicles[j], receivers_copy[k]) / receivers_copy[k][RECEIVER_DEMAND_PARAM]);
         }
-        else
+        heapsort(receivers_copy, coefficients, receivers_copy.size());
+        if (vehicles[j][VEHICLE_TIME_PARAM] < receivers_copy[i][RECEIVER_TIME_WINDOW_START_PARAM])
+        {
+            vehicles[j][VEHICLE_TIME_PARAM] = receivers_copy[i][RECEIVER_TIME_WINDOW_START_PARAM];
+        }
+        else if (vehicles[j][VEHICLE_TIME_PARAM] > receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
         {
             j++;
             if (j == vehicles.size())
             {
-                return k;
+                return 0;
             }
+            continue;
+        }
+        if (vehicles[j][VEHICLE_CAPACITY_PARAM] >= receivers_copy[i][RECEIVER_DEMAND_PARAM] &&
+            vehicles[j][VEHICLE_TIME_PARAM] + time_to_arrive(vehicles[j], receivers_copy[i]) <= receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
+        {
+            vehicles[j][VEHICLE_CAPACITY_PARAM] -= receivers_copy[i][RECEIVER_DEMAND_PARAM];
+            vehicles[j][VEHICLE_TIME_PARAM] += time_to_arrive(vehicles[j], receivers_copy[i]) + receivers_copy[i][RECEIVER_SERVICE_TIME_PARAM];
+            vehicles[j][VEHICLE_X_CORD_PARAM] = receivers_copy[i][RECEIVER_X_CORD_PARAM];
+            vehicles[j][VEHICLE_Y_CORD_PARAM] = receivers_copy[i][RECEIVER_Y_CORD_PARAM];
+            receivers_copy.erase(receivers_copy.begin() + i);
+            coefficients.clear();
+            i++;
         }
     }
-}
-
-int main(int argc, char *argv[])
-{
-    std::vector<std::vector<int>> vehicles;
-    std::vector<std::vector<int>> receivers;
+    int result = 0;
+    for (auto vehicle : vehicles)
+    {
+        result += vehicle[VEHICLE_TIME_PARAM];
+    }
+    return result;
 }
