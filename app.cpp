@@ -31,8 +31,14 @@ int main(int argc, char *argv[])
 
 int time_to_arrive(std::vector<int> vehicle, std::vector<int> receiver)
 {
-    return static_cast<int>(sqrt(pow(vehicle[VEHICLE_X_CORD_PARAM] - receiver[RECEIVER_X_CORD_PARAM], 2) +
+    int t = static_cast<int>(sqrt(
+            pow(vehicle[VEHICLE_X_CORD_PARAM] - receiver[RECEIVER_X_CORD_PARAM], 2) +
             pow(vehicle[VEHICLE_Y_CORD_PARAM] - receiver[RECEIVER_Y_CORD_PARAM], 2)));
+
+    if (vehicle[VEHICLE_TIME_PARAM] + t < receiver[RECEIVER_TIME_WINDOW_START_PARAM])
+        return receiver[RECEIVER_TIME_WINDOW_START_PARAM] - vehicle[VEHICLE_TIME_PARAM];
+    
+    return t;
 }
 
 void heapify(std::vector<std::vector<int>> M, std::vector<double> coefficient, int n, int i)
@@ -79,11 +85,7 @@ int greedy(std::vector<std::vector<int>> vehicles, std::vector<std::vector<int>>
             coefficients.push_back(time_to_arrive(vehicles[j], receivers_copy[k]) / receivers_copy[k][RECEIVER_DEMAND_PARAM]);
         }
         heapsort(receivers_copy, coefficients, receivers_copy.size());
-        if (vehicles[j][VEHICLE_TIME_PARAM] < receivers_copy[i][RECEIVER_TIME_WINDOW_START_PARAM])
-        {
-            vehicles[j][VEHICLE_TIME_PARAM] = receivers_copy[i][RECEIVER_TIME_WINDOW_START_PARAM];
-        }
-        else if (vehicles[j][VEHICLE_TIME_PARAM] > receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
+        if (vehicles[j][VEHICLE_TIME_PARAM] > receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
         {
             j++;
             if (j == vehicles.size())
@@ -92,11 +94,12 @@ int greedy(std::vector<std::vector<int>> vehicles, std::vector<std::vector<int>>
             }
             continue;
         }
+        int t = time_to_arrive(vehicles[j], receivers_copy[i]);
         if (vehicles[j][VEHICLE_CAPACITY_PARAM] >= receivers_copy[i][RECEIVER_DEMAND_PARAM] &&
-            vehicles[j][VEHICLE_TIME_PARAM] + time_to_arrive(vehicles[j], receivers_copy[i]) <= receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
+            vehicles[j][VEHICLE_TIME_PARAM] + t <= receivers_copy[i][RECEIVER_TIME_WINDOW_END_PARAM])
         {
             vehicles[j][VEHICLE_CAPACITY_PARAM] -= receivers_copy[i][RECEIVER_DEMAND_PARAM];
-            vehicles[j][VEHICLE_TIME_PARAM] += time_to_arrive(vehicles[j], receivers_copy[i]) + receivers_copy[i][RECEIVER_SERVICE_TIME_PARAM];
+            vehicles[j][VEHICLE_TIME_PARAM] += t + receivers_copy[i][RECEIVER_SERVICE_TIME_PARAM];
             vehicles[j][VEHICLE_X_CORD_PARAM] = receivers_copy[i][RECEIVER_X_CORD_PARAM];
             vehicles[j][VEHICLE_Y_CORD_PARAM] = receivers_copy[i][RECEIVER_Y_CORD_PARAM];
             receivers_copy.erase(receivers_copy.begin() + i);
