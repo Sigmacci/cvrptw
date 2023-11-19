@@ -114,7 +114,7 @@ std::vector<std::vector<int>> greedy_randomized(std::vector<vehicle> vehicles, s
     {
         for (int k = 0; k < receivers_copy.size(); k++)
         {
-            coefficients.push_back(time_to_arrive(vehicles_copy[j], receivers_copy[k]) / receivers_copy[k].demand);
+            coefficients.push_back(receivers_copy[k].demand / time_to_arrive(vehicles_copy[j], receivers_copy[k]));
         }
         heapsort(receivers_copy, coefficients, receivers_copy.size());
 
