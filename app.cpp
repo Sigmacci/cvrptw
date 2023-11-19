@@ -193,6 +193,10 @@ bool is_acceptable(std::vector<std::vector<int>> individual, int number_of_vehic
     {
         for (int j = 0; j < number_of_receivers; j++)
         {
+            if (check[i] + individual[i][j] > 1)
+            {
+               individual[i][j] = 0;
+            }
             check[i] += individual[i][j];
         }
         if (check[i] != 1)
