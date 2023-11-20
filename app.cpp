@@ -8,21 +8,28 @@
 
 using namespace std;
 
-typedef struct vehicle
-{
-    int capacity; // capacity of vehicle left
-    int time;     // spent time
-    int x_cord;   // x coordinate of vehicle
-    int y_cord;   // y coordinate of vehicle
+typedef struct point2D {
+    int x;
+    int y;
+} point2D;
 
-    vehicle(int capacity, int x_cord, int y_cord)
-    {
+typedef struct vehicle {
+    int capacity;  // capacity of vehicle left
+    int time;      // spent time
+    point2D coordinates;
+
+    vehicle(int capacity, point2D coordinates) {
         this->capacity = capacity;
         this->time = 0;
-        this->x_cord = x_cord;
-        this->y_cord = y_cord;
+        this->coordinates = coordinates;
     };
 } vehicle;
+class Transport {
+   public:
+    int vehicle_cap;           // capacity of vehicle
+    int time_limit;            // when dispatcher closes gates
+    point2D coordinates;       // coordinates of dispatcher
+    vector<vehicle> vehicles;  // storage of all vehicles
 class Transport
 {
 public:
@@ -32,6 +39,11 @@ public:
     int y_cord_of_dispatcher; // y coordinate of dispatcher
     vector<vehicle> vehicles; // storage of all vehicles
 
+    Transport() {
+        this->vehicle_cap = 0;
+        this->time_limit = 0;
+        this->coordinates = {0, 0};
+    }
     Transport(){}; // temporary constructor
 
     Transport(int vehicle_cap, int x_cord_of_dispatcher, int y_cord_of_dispatcher)
@@ -43,6 +55,8 @@ public:
     };
     /// @brief create new vehicle and add it to vehicles vector
     /// @return index of new vehicle
+    int dispatchNewVehicle() {
+        vehicle new_vehicle(this->vehicle_cap, this->coordinates);
     int dispatchNewVehicle()
     {
         vehicle new_vehicle(this->vehicle_cap, this->x_cord_of_dispatcher, this->y_cord_of_dispatcher);
@@ -54,41 +68,37 @@ public:
 typedef struct customer
 {
     int id;
-    int x_cord;
-    int y_cord;
+    point2D coordinates;
     int demand;
     int time_window_start;
     int time_window_end;
     int service_time;
 
-    customer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time)
-    {
+    customer(int id, point2D coordinates, int demand, int time_window_start, int time_window_end, int service_time) {
         this->id = id;
-        this->x_cord = x_cord;
-        this->y_cord = y_cord;
+        this->coordinates = coordinates;
         this->demand = demand;
         this->time_window_start = time_window_start;
         this->time_window_end = time_window_end;
         this->service_time = service_time;
     };
 } customer;
-class Customers
-{
-public:
-    vector<customer> customers;
+class Customers {
+   public:
+    vector<customer> customers;  // storage of all customers and point 0
     Customers(){};
     /// @brief create new customer and add it to customers vector
     /// @return index of new customer
-    int addCustomer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time)
-    {
-        customer new_customer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
+    int addCustomer(int id, point2D coordinates, int demand, int time_window_start, int time_window_end, int service_time) {
+        customer new_customer(id, coordinates, demand, time_window_start, time_window_end, service_time);
         this->customers.push_back(new_customer);
         return this->customers.size() - 1;
     }
 };
 
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
-int time_to_arrive(vehicle v, customer r);
+float distance(point2D a, point2D b);
+void calculateDistanceMatrix(vector<customer> points, float **distanceMatrix);
 
 vector<vector<int>> greedy_randomized(Transport transport, Customers customers);
 void heapify(vector<customer> customers, vector<double> coefficient, int n, int i);
@@ -111,14 +121,14 @@ int main(int argc, char *argv[])
         cout << "Error in reading data from file" << endl;
         return 1;
     }
-    // DEBUG: check tranport buffer
-    // cout << transport.time_limit << endl
-    //      << transport.vehicle_cap << endl
-    //      << transport.vehicles.size() << endl
-    //      << transport.x_cord_of_dispatcher << endl
-    //      << transport.y_cord_of_dispatcher << endl;
-    // DEBUG: check count of customers
-    // cout << customers.customers.size() << endl;
+    // create distance matrix
+    float **distanceMatrix;
+    distanceMatrix = new float *[customers.customers.size()];
+    for (int n = 0; n < customers.customers.size(); n++) {
+        distanceMatrix[n] = new float[customers.customers.size()];
+    }
+    calculateDistanceMatrix(customers.customers, distanceMatrix);
+
     return 0;
 
     // customer home(0, 0, 0, 0, 0, 0, 0);
@@ -128,8 +138,7 @@ int main(int argc, char *argv[])
 /// @brief Read neccecery data from file and store them in vectors
 /// @param path name and path of file
 /// @return true->success false->fail
-bool read_data_from_file(string path, Transport &transport, Customers &customers)
-{
+bool read_data_from_file(string path, Transport &transport, Customers &customers, vector<customer> &points) {
     // open file
     ifstream file(path);
     if (!file.is_open())
@@ -137,46 +146,55 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
         return false;
     }
     string line;
-    bool vehicle = false, customer = false;
-    while (getline(file, line))
-    {
-        if (customer)
-        {
-            // fix empty line after headers
-            if (line.empty())
-                continue;
-            istringstream iss(line);
-            int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
-            iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
-            if (id == 0)
-            {
-                transport.x_cord_of_dispatcher = x_cord;
-                transport.y_cord_of_dispatcher = y_cord;
-                transport.time = time_window_end;
-            }
-            else
-            {
-                customers.addCustomer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
-            }
+    getline(file, line);  // name
+    getline(file, line);  // empty
+    getline(file, line);  // VEHICLE
+    getline(file, line);  // HEADERS
+    getline(file, line);  // vehicle data
+    istringstream iss(line);
+    int tmp;
+    iss >> tmp >> transport.vehicle_cap;
+    getline(file, line);            // empty
+    getline(file, line);            // CUSTOMER
+    getline(file, line);            // HEADERS
+    while (getline(file, line)) {   // customer data
+        if (line == " ") continue;  // fix empty line after headers
+        if (line.empty()) break;    // end of file
+        istringstream iss(line);
+        int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
+        iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
+        if (id == 0) {
+            transport.coordinates = {x_cord, y_cord};
+            transport.time_limit = time_window_end;
         }
-        else if (vehicle)
-        {
-            istringstream iss(line);
-            int tmp;
-            iss >> tmp >> transport.vehicle_cap;
-            vehicle = false;
-        }
-        else if (line.find("NUMBER") != string::npos)
-        {
-            vehicle = true;
-        }
-        else if (line.find("CUST") != string::npos)
-        {
-            customer = true;
-        }
+        customers.addCustomer(id, {x_cord, y_cord}, demand, time_window_start, time_window_end, service_time);
     }
     file.close();
-    return !vehicle && customer;
+    return true;
+}
+
+bool valid(Customers customers, Transport transport)
+{
+    for (auto customer : customers.customers)
+    {
+        if (customer.time_window_start > customer.time_window_end)
+            return false;
+        if (customer.time_window_start < 0)
+            return false;
+        // 0 -> dispatcher
+        if (customer.time_window_start + customer.service_time > customers.customers[0].time_window_end)
+            return false;
+        if (customer.time_window_end > customers.customers[0].time_window_end)
+            return false;
+        if (customer.service_time < 0)
+            return false;
+
+        if (customer.demand < 0)
+            return false;
+        if (customer.demand > transport.vehicle_cap)
+            return false;
+    }
+    return true;
 }
 
 bool valid(Customers customers, Transport transport)
@@ -268,7 +286,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers)
     copy(transport.vehicles, vehicles_copy, transport.vehicles.size());
     copy(customers.customers, customers_copy, customers.customers.size());
 
-    int i = 1, j = 0, r = 0;
+//     int i = 1, j = 0, r = 0;
 
     while (i < customers_copy.size())
     {
@@ -278,10 +296,10 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers)
         }
         heapsort(customers_copy, coefficients, customers_copy.size());
 
-        if (rand() % 2 == 0)
-            r = (rand() % (customers_copy.size() - 1)) + 1;
-        else
-            r = i;
+//         if (rand() % 2 == 0)
+//             r = (rand() % (customers_copy.size() - 1)) + 1;
+//         else
+//             r = i;
 
         int t = time_to_arrive(vehicles_copy[j], customers_copy[r]);
         int ret_to_dep = time_to_arrive(vehicles_copy[j], customers_copy[0]);
