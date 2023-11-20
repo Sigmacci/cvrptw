@@ -8,39 +8,38 @@
 
 using namespace std;
 
+typedef struct point2D {
+    int x;
+    int y;
+} point2D;
+
 typedef struct vehicle {
     int capacity;  // capacity of vehicle left
     int time;      // spent time
-    float road_length;
-    int x_cord;  // x coordinate of vehicle
-    int y_cord;  // y coordinate of vehicle
+    point2D coordinates;
 
-    vehicle(int capacity, int x_cord, int y_cord) {
+    vehicle(int capacity, point2D coordinates) {
         this->capacity = capacity;
         this->time = 0;
-        this->x_cord = 0;
-        this->y_cord = 0;
-        this->road_length = 0.0;
+        this->coordinates = coordinates;
     };
 } vehicle;
 class Transport {
    public:
     int vehicle_cap;           // capacity of vehicle
     int time_limit;            // when dispatcher closes gates
-    int x_cord_of_dispatcher;  // x coordinate of dispatcher
-    int y_cord_of_dispatcher;  // y coordinate of dispatcher
+    point2D coordinates;       // coordinates of dispatcher
     vector<vehicle> vehicles;  // storage of all vehicles
 
     Transport() {
         this->vehicle_cap = 0;
         this->time_limit = 0;
-        this->x_cord_of_dispatcher = 0;
-        this->y_cord_of_dispatcher = 0;
+        this->coordinates = {0, 0};
     }
     /// @brief create new vehicle and add it to vehicles vector
     /// @return index of new vehicle
     int dispatchNewVehicle() {
-        vehicle new_vehicle(this->vehicle_cap, this->x_cord_of_dispatcher, this->y_cord_of_dispatcher);
+        vehicle new_vehicle(this->vehicle_cap, this->coordinates);
         this->vehicles.push_back(new_vehicle);
         return this->vehicles.size() - 1;
     }
@@ -48,17 +47,15 @@ class Transport {
 
 typedef struct customer {
     int id;
-    int x_cord;
-    int y_cord;
+    point2D coordinates;
     int demand;
     int time_window_start;
     int time_window_end;
     int service_time;
 
-    customer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time) {
+    customer(int id, point2D coordinates, int demand, int time_window_start, int time_window_end, int service_time) {
         this->id = id;
-        this->x_cord = x_cord;
-        this->y_cord = y_cord;
+        this->coordinates = coordinates;
         this->demand = demand;
         this->time_window_start = time_window_start;
         this->time_window_end = time_window_end;
@@ -71,8 +68,8 @@ class Customers {
     Customers(){};
     /// @brief create new customer and add it to customers vector
     /// @return index of new customer
-    int addCustomer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time) {
-        customer new_customer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
+    int addCustomer(int id, point2D coordinates, int demand, int time_window_start, int time_window_end, int service_time) {
+        customer new_customer(id, coordinates, demand, time_window_start, time_window_end, service_time);
         this->customers.push_back(new_customer);
         return this->customers.size() - 1;
     }
@@ -133,11 +130,10 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
             int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
             iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
             if (id == 0) {
-                transport.x_cord_of_dispatcher = x_cord;
-                transport.y_cord_of_dispatcher = y_cord;
+                transport.coordinates = {x_cord, y_cord};
                 transport.time_limit = time_window_end;
             } else {
-                customers.addCustomer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
+                customers.addCustomer(id, {x_cord, y_cord}, demand, time_window_start, time_window_end, service_time);
             }
         } else if (vehicle) {
             istringstream iss(line);
@@ -156,15 +152,8 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
 
 /// @brief Calculate time from vehicle to traget customer
 /// @return time neccessary to arrive to customer
-int time_to_arrive(vehicle v, customer r) {
-    float t = sqrt(
-        pow(v.x_cord - r.x_cord, 2) +
-        pow(v.y_cord - r.y_cord, 2));
-
-    if (v.time + t < r.time_window_start)
-        return r.time_window_start - v.time;
-
-    return t;
+float distance(vehicle v, customer r) {
+    return sqrt(pow(v.coordinates.x - r.coordinates.x, 2) + pow(v.coordinates.y - r.coordinates.y, 2));
 }
 
 // void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i) {
