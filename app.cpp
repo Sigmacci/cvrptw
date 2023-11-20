@@ -64,7 +64,7 @@ typedef struct customer {
 } customer;
 class Customers {
    public:
-    vector<customer> customers;
+    vector<customer> customers;  // storage of all customers and point 0
     Customers(){};
     /// @brief create new customer and add it to customers vector
     /// @return index of new customer
@@ -76,7 +76,8 @@ class Customers {
 };
 
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
-int time_to_arrive(vehicle v, customer r);
+float distance(point2D a, point2D b);
+void calculateDistanceMatrix(vector<customer> points, float **distanceMatrix);
 
 std::vector<std::vector<int>> greedy_randomized(std::vector<vehicle> vehicles, std::vector<customer> customers);
 void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i);
@@ -96,14 +97,14 @@ int main(int argc, char *argv[]) {
         cout << "Error in reading data from file" << endl;
         return 1;
     }
-    // DEBUG: check tranport buffer
-    // cout << transport.time_limit << endl
-    //      << transport.vehicle_cap << endl
-    //      << transport.vehicles.size() << endl
-    //      << transport.x_cord_of_dispatcher << endl
-    //      << transport.y_cord_of_dispatcher << endl;
-    // DEBUG: check count of customers
-    // cout << customers.customers.size() << endl;
+    // create distance matrix
+    float **distanceMatrix;
+    distanceMatrix = new float *[customers.customers.size()];
+    for (int n = 0; n < customers.customers.size(); n++) {
+        distanceMatrix[n] = new float[customers.customers.size()];
+    }
+    calculateDistanceMatrix(customers.customers, distanceMatrix);
+
     return 0;
 
     // customer home(0, 0, 0, 0, 0, 0, 0);
@@ -113,47 +114,53 @@ int main(int argc, char *argv[]) {
 /// @brief Read neccecery data from file and store them in vectors
 /// @param path name and path of file
 /// @return true->success false->fail
-bool read_data_from_file(string path, Transport &transport, Customers &customers) {
+bool read_data_from_file(string path, Transport &transport, Customers &customers, vector<customer> &points) {
     // open file
     ifstream file(path);
     if (!file.is_open()) {
         return false;
     }
     string line;
-    bool vehicle = false, customer = false;
-    while (getline(file, line)) {
-        if (customer) {
-            // fix empty line after headers
-            if (line.empty())
-                continue;
-            istringstream iss(line);
-            int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
-            iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
-            if (id == 0) {
-                transport.coordinates = {x_cord, y_cord};
-                transport.time_limit = time_window_end;
-            } else {
-                customers.addCustomer(id, {x_cord, y_cord}, demand, time_window_start, time_window_end, service_time);
-            }
-        } else if (vehicle) {
-            istringstream iss(line);
-            int tmp;
-            iss >> tmp >> transport.vehicle_cap;
-            vehicle = false;
-        } else if (line.find("NUMBER") != string::npos) {
-            vehicle = true;
-        } else if (line.find("CUST") != string::npos) {
-            customer = true;
+    getline(file, line);  // name
+    getline(file, line);  // empty
+    getline(file, line);  // VEHICLE
+    getline(file, line);  // HEADERS
+    getline(file, line);  // vehicle data
+    istringstream iss(line);
+    int tmp;
+    iss >> tmp >> transport.vehicle_cap;
+    getline(file, line);            // empty
+    getline(file, line);            // CUSTOMER
+    getline(file, line);            // HEADERS
+    while (getline(file, line)) {   // customer data
+        if (line == " ") continue;  // fix empty line after headers
+        if (line.empty()) break;    // end of file
+        istringstream iss(line);
+        int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
+        iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
+        if (id == 0) {
+            transport.coordinates = {x_cord, y_cord};
+            transport.time_limit = time_window_end;
         }
+        customers.addCustomer(id, {x_cord, y_cord}, demand, time_window_start, time_window_end, service_time);
     }
     file.close();
-    return !vehicle && customer;
+    return true;
 }
 
 /// @brief Calculate time from vehicle to traget customer
 /// @return time neccessary to arrive to customer
-float distance(vehicle v, customer r) {
-    return sqrt(pow(v.coordinates.x - r.coordinates.x, 2) + pow(v.coordinates.y - r.coordinates.y, 2));
+float distance(point2D a, point2D b) {
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
+
+void calculateDistanceMatrix(vector<customer> points, float **distanceMatrix) {
+    for (int i = 0; i < points.size(); i++) {
+        for (int j = 0; j < points.size(); j++) {
+            distanceMatrix[i][j] = distance(points[i].coordinates, points[j].coordinates);
+            distanceMatrix[j][i] = distanceMatrix[i][j];
+        }
+    }
 }
 
 // void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i) {
@@ -182,54 +189,54 @@ float distance(vehicle v, customer r) {
 //     }
 // }
 
-std::vector<std::vector<int>> greedy_randomized(Transport transport, Customers customers) {
-    std::vector<std::vector<int>> result;
-    std::vector<int> route = {0};
-    route.resize(customers.size() - 1);
-    std::vector<double> coefficients;
-    std::vector<vehicle> vehicles_copy;
-    std::vector<customer> customers_copy;
-    std::copy(vehicles, vehicles_copy, vehicles.size());
-    std::copy(customers, customers_copy, customers.size());
+// std::vector<std::vector<int>> greedy_randomized(Transport transport, Customers customers) {
+//     std::vector<std::vector<int>> result;
+//     std::vector<int> route = {0};
+//     route.resize(customers.size() - 1);
+//     std::vector<double> coefficients;
+//     std::vector<vehicle> vehicles_copy;
+//     std::vector<customer> customers_copy;
+//     std::copy(vehicles, vehicles_copy, vehicles.size());
+//     std::copy(customers, customers_copy, customers.size());
 
-    int i = 1, j = 0, r = 0;
+//     int i = 1, j = 0, r = 0;
 
-    while (i < customers_copy.size()) {
-        for (int k = 0; k < customers_copy.size(); k++) {
-            coefficients.push_back(customers_copy[k].demand / time_to_arrive(vehicles_copy[j], customers_copy[k]));
-        }
-        heapsort(customers_copy, coefficients, customers_copy.size());
+//     while (i < customers_copy.size()) {
+//         for (int k = 0; k < customers_copy.size(); k++) {
+//             coefficients.push_back(customers_copy[k].demand / time_to_arrive(vehicles_copy[j], customers_copy[k]));
+//         }
+//         heapsort(customers_copy, coefficients, customers_copy.size());
 
-        if (rand() % 2 == 0)
-            r = (rand() % (customers_copy.size() - 1)) + 1;
-        else
-            r = i;
+//         if (rand() % 2 == 0)
+//             r = (rand() % (customers_copy.size() - 1)) + 1;
+//         else
+//             r = i;
 
-        int t = time_to_arrive(vehicles_copy[j], customers_copy[r]);
-        if (vehicles_copy[j].capacity >= customers_copy[r].demand &&
-            vehicles_copy[j].time + t <= customers_copy[r].time_window_end) {
-            vehicles_copy[j].capacity -= customers_copy[r].demand;
-            vehicles_copy[j].time += t + customers_copy[r].service_time;
-            vehicles_copy[j].x_cord = customers_copy[r].x_cord;
-            vehicles_copy[j].y_cord = customers_copy[r].y_cord;
-            route[customers_copy[r].id - 1] = 1;
-            customers_copy.erase(customers_copy.begin() + i);
-            coefficients.clear();
-        } else {
-            if (i == customers_copy.size()) {
-                i = 0;
-                result.push_back(route);
-                if (++j == vehicles_copy.size()) {
-                    return {{}};
-                }
-                continue;
-            }
-        }
-        if (r == i)
-            i++;
-    }
-    return result;
-}
+//         int t = time_to_arrive(vehicles_copy[j], customers_copy[r]);
+//         if (vehicles_copy[j].capacity >= customers_copy[r].demand &&
+//             vehicles_copy[j].time + t <= customers_copy[r].time_window_end) {
+//             vehicles_copy[j].capacity -= customers_copy[r].demand;
+//             vehicles_copy[j].time += t + customers_copy[r].service_time;
+//             vehicles_copy[j].x_cord = customers_copy[r].x_cord;
+//             vehicles_copy[j].y_cord = customers_copy[r].y_cord;
+//             route[customers_copy[r].id - 1] = 1;
+//             customers_copy.erase(customers_copy.begin() + i);
+//             coefficients.clear();
+//         } else {
+//             if (i == customers_copy.size()) {
+//                 i = 0;
+//                 result.push_back(route);
+//                 if (++j == vehicles_copy.size()) {
+//                     return {{}};
+//                 }
+//                 continue;
+//             }
+//         }
+//         if (r == i)
+//             i++;
+//     }
+//     return result;
+// }
 
 // int fitness(std::vector<std::vector<int>> individual, std::vector<customer> customers, int capacity) {
 //     int total_fitness = 0;
