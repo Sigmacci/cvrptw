@@ -78,6 +78,7 @@ class Customers {
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
 float distance(point2D a, point2D b);
 void calculateDistanceMatrix(vector<customer> points, float **distanceMatrix);
+void saveOptimalSolution(vector<vector<int>> solution);
 
 std::vector<std::vector<int>> greedy_randomized(std::vector<vehicle> vehicles, std::vector<customer> customers);
 void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i);
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]) {
 /// @brief Read neccecery data from file and store them in vectors
 /// @param path name and path of file
 /// @return true->success false->fail
-bool read_data_from_file(string path, Transport &transport, Customers &customers, vector<customer> &points) {
+bool read_data_from_file(string path, Transport &transport, Customers &customers) {
     // open file
     ifstream file(path);
     if (!file.is_open()) {
@@ -161,6 +162,21 @@ void calculateDistanceMatrix(vector<customer> points, float **distanceMatrix) {
             distanceMatrix[j][i] = distanceMatrix[i][j];
         }
     }
+}
+
+void saveOptimalSolution(vector<vector<int>> solution) {
+    ofstream file("solution.txt");
+    if (!file.is_open()) {
+        cout << "Error in opening file" << endl;
+        return;
+    }
+    for (int i = 0; i < solution.size(); i++) {
+        for (int j = 0; j < solution[i].size(); j++) {
+            file << solution[i][j] << " ";
+        }
+        file << endl;
+    }
+    file.close();
 }
 
 // void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i) {

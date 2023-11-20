@@ -12,7 +12,7 @@
             ],
             "windowsSdkVersion": "10.0.22000.0",
             "cStandard": "c17",
-            "compilerPath": "C:/MinGW/bin/g++.exe"
+            "compilerPath": "D:/Programs/MinGW/bin/g++.exe"
         }
     ],
     "version": 4
