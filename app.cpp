@@ -8,45 +8,51 @@
 
 using namespace std;
 
-typedef struct vehicle {
-    int capacity;  // capacity of vehicle left
-    int time;      // spent time
-    float road_length;
-    int x_cord;  // x coordinate of vehicle
-    int y_cord;  // y coordinate of vehicle
+typedef struct vehicle
+{
+    int capacity; // capacity of vehicle left
+    int time;     // spent time
+    int x_cord;   // x coordinate of vehicle
+    int y_cord;   // y coordinate of vehicle
 
-    vehicle(int capacity, int x_cord, int y_cord) {
+    vehicle(int capacity, int x_cord, int y_cord)
+    {
         this->capacity = capacity;
         this->time = 0;
-        this->x_cord = 0;
-        this->y_cord = 0;
-        this->road_length = 0.0;
+        this->x_cord = x_cord;
+        this->y_cord = y_cord;
     };
 } vehicle;
-class Transport {
-   public:
-    int vehicle_cap;           // capacity of vehicle
-    int time_limit;            // when dispatcher closes gates
-    int x_cord_of_dispatcher;  // x coordinate of dispatcher
-    int y_cord_of_dispatcher;  // y coordinate of dispatcher
-    vector<vehicle> vehicles;  // storage of all vehicles
+class Transport
+{
+public:
+    int vehicle_cap;          // capacity of vehicle
+    int time;                 // when dispatcher closes gates
+    int x_cord_of_dispatcher; // x coordinate of dispatcher
+    int y_cord_of_dispatcher; // y coordinate of dispatcher
+    vector<vehicle> vehicles; // storage of all vehicles
 
-    Transport() {
-        this->vehicle_cap = 0;
-        this->time_limit = 0;
-        this->x_cord_of_dispatcher = 0;
-        this->y_cord_of_dispatcher = 0;
-    }
+    Transport(){}; // temporary constructor
+
+    Transport(int vehicle_cap, int x_cord_of_dispatcher, int y_cord_of_dispatcher)
+    {
+        this->vehicle_cap = vehicle_cap;
+        this->time = 0;
+        this->x_cord_of_dispatcher = x_cord_of_dispatcher;
+        this->y_cord_of_dispatcher = y_cord_of_dispatcher;
+    };
     /// @brief create new vehicle and add it to vehicles vector
     /// @return index of new vehicle
-    int dispatchNewVehicle() {
+    int dispatchNewVehicle()
+    {
         vehicle new_vehicle(this->vehicle_cap, this->x_cord_of_dispatcher, this->y_cord_of_dispatcher);
         this->vehicles.push_back(new_vehicle);
         return this->vehicles.size() - 1;
     }
 };
 
-typedef struct customer {
+typedef struct customer
+{
     int id;
     int x_cord;
     int y_cord;
@@ -55,7 +61,8 @@ typedef struct customer {
     int time_window_end;
     int service_time;
 
-    customer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time) {
+    customer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time)
+    {
         this->id = id;
         this->x_cord = x_cord;
         this->y_cord = y_cord;
@@ -65,13 +72,15 @@ typedef struct customer {
         this->service_time = service_time;
     };
 } customer;
-class Customers {
-   public:
+class Customers
+{
+public:
     vector<customer> customers;
     Customers(){};
     /// @brief create new customer and add it to customers vector
     /// @return index of new customer
-    int addCustomer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time) {
+    int addCustomer(int id, int x_cord, int y_cord, int demand, int time_window_start, int time_window_end, int service_time)
+    {
         customer new_customer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
         this->customers.push_back(new_customer);
         return this->customers.size() - 1;
@@ -81,13 +90,15 @@ class Customers {
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
 int time_to_arrive(vehicle v, customer r);
 
-std::vector<std::vector<int>> greedy_randomized(std::vector<vehicle> vehicles, std::vector<customer> customers);
-void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i);
-void heapsort(std::vector<customer> customers, std::vector<double> coefficient, int n);
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers);
+void heapify(vector<customer> customers, vector<double> coefficient, int n, int i);
+void heapsort(vector<customer> customers, vector<double> coefficient, int n);
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     // check if file name is given
-    if (argc != 2) {
+    if (argc != 2)
+    {
         cout << "Please enter file name" << endl;
         return 1;
     }
@@ -95,7 +106,8 @@ int main(int argc, char *argv[]) {
     Transport transport;
     Customers customers;
     // read data from file
-    if (!read_data_from_file(argv[1], transport, customers)) {
+    if (!read_data_from_file(argv[1], transport, customers))
+    {
         cout << "Error in reading data from file" << endl;
         return 1;
     }
@@ -116,37 +128,50 @@ int main(int argc, char *argv[]) {
 /// @brief Read neccecery data from file and store them in vectors
 /// @param path name and path of file
 /// @return true->success false->fail
-bool read_data_from_file(string path, Transport &transport, Customers &customers) {
+bool read_data_from_file(string path, Transport &transport, Customers &customers)
+{
     // open file
     ifstream file(path);
-    if (!file.is_open()) {
+    if (!file.is_open())
+    {
         return false;
     }
     string line;
     bool vehicle = false, customer = false;
-    while (getline(file, line)) {
-        if (customer) {
+    while (getline(file, line))
+    {
+        if (customer)
+        {
             // fix empty line after headers
             if (line.empty())
                 continue;
             istringstream iss(line);
             int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
             iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
-            if (id == 0) {
+            if (id == 0)
+            {
                 transport.x_cord_of_dispatcher = x_cord;
                 transport.y_cord_of_dispatcher = y_cord;
-                transport.time_limit = time_window_end;
-            } else {
+                transport.time = time_window_end;
+            }
+            else
+            {
                 customers.addCustomer(id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time);
             }
-        } else if (vehicle) {
+        }
+        else if (vehicle)
+        {
             istringstream iss(line);
             int tmp;
             iss >> tmp >> transport.vehicle_cap;
             vehicle = false;
-        } else if (line.find("NUMBER") != string::npos) {
+        }
+        else if (line.find("NUMBER") != string::npos)
+        {
             vehicle = true;
-        } else if (line.find("CUST") != string::npos) {
+        }
+        else if (line.find("CUST") != string::npos)
+        {
             customer = true;
         }
     }
@@ -154,9 +179,34 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
     return !vehicle && customer;
 }
 
+bool valid(Customers customers, Transport transport)
+{
+    for (auto customer : customers.customers)
+    {
+        if (customer.time_window_start > customer.time_window_end)
+            return false;
+        if (customer.time_window_start < 0)
+            return false;
+        // 0 -> dispatcher
+        if (customer.time_window_start + customer.service_time > customers.customers[0].time_window_end)
+            return false;
+        if (customer.time_window_end > customers.customers[0].time_window_end)
+            return false;
+        if (customer.service_time < 0)
+            return false;
+
+        if (customer.demand < 0)
+            return false;
+        if (customer.demand > transport.vehicle_cap)
+            return false;
+    }
+    return true;
+}
+
 /// @brief Calculate time from vehicle to traget customer
 /// @return time neccessary to arrive to customer
-int time_to_arrive(vehicle v, customer r) {
+int time_to_arrive(vehicle v, customer r)
+{
     float t = sqrt(
         pow(v.x_cord - r.x_cord, 2) +
         pow(v.y_cord - r.y_cord, 2));
@@ -167,46 +217,63 @@ int time_to_arrive(vehicle v, customer r) {
     return t;
 }
 
-// void heapify(std::vector<customer> customers, std::vector<double> coefficient, int n, int i) {
-//     int min = i;
-//     int left = 2 * i + 1;
-//     int right = 2 * i + 2;
-//     if (left < n && coefficient[left] < coefficient[min])
-//         min = left;
-//     if (right < n && coefficient[right] < coefficient[min])
-//         min = right;
-//     if (min != i) {
-//         std::swap(coefficient[i], coefficient[min]);
-//         std::swap(customers[i], customers[min]);
-//         heapify(customers, coefficient, n, min);
-//     }
-// }
+/// @brief heapify function for heapsort
+/// @param customers 
+/// @param coefficient 
+/// @param n 
+/// @param i 
+void heapify(vector<customer> customers, vector<double> coefficient, int n, int i)
+{
+    int min = i;
+    int left = 2 * i + 1;
+    int right = 2 * i + 2;
+    if (left < n && coefficient[left] < coefficient[min])
+        min = left;
+    if (right < n && coefficient[right] < coefficient[min])
+        min = right;
+    if (min != i)
+    {
+        swap(coefficient[i], coefficient[min]);
+        swap(customers[i], customers[min]);
+        heapify(customers, coefficient, n, min);
+    }
+}
 
-// void heapsort(std::vector<customer> customers, std::vector<double> coefficient, int n) {
-//     for (int i = n / 2 - 1; i >= 0; i--) {
-//         heapify(customers, coefficient, n, i);
-//     }
-//     for (int i = 1; i < n; i++) {
-//         std::swap(coefficient[0], coefficient[n - i]);
-//         std::swap(customers[0], customers[n - i]);
-//         heapify(customers, coefficient, n - i, 0);
-//     }
-// }
+/// @brief heapsort function
+/// @param customers 
+/// @param coefficient 
+/// @param n 
+void heapsort(vector<customer> customers, vector<double> coefficient, int n)
+{
+    for (int i = n / 2 - 1; i >= 0; i--)
+    {
+        heapify(customers, coefficient, n, i);
+    }
+    for (int i = 1; i < n; i++)
+    {
+        swap(coefficient[0], coefficient[n - i]);
+        swap(customers[0], customers[n - i]);
+        heapify(customers, coefficient, n - i, 0);
+    }
+}
 
-std::vector<std::vector<int>> greedy_randomized(Transport transport, Customers customers) {
-    std::vector<std::vector<int>> result;
-    std::vector<int> route = {0};
-    route.resize(customers.size() - 1);
-    std::vector<double> coefficients;
-    std::vector<vehicle> vehicles_copy;
-    std::vector<customer> customers_copy;
-    std::copy(vehicles, vehicles_copy, vehicles.size());
-    std::copy(customers, customers_copy, customers.size());
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers)
+{
+    vector<vector<int>> result;
+    vector<int> route;
+    // route.resize(customers.customers.size() - 1);
+    vector<double> coefficients;
+    vector<vehicle> vehicles_copy;
+    vector<customer> customers_copy;
+    copy(transport.vehicles, vehicles_copy, transport.vehicles.size());
+    copy(customers.customers, customers_copy, customers.customers.size());
 
     int i = 1, j = 0, r = 0;
 
-    while (i < customers_copy.size()) {
-        for (int k = 0; k < customers_copy.size(); k++) {
+    while (i < customers_copy.size())
+    {
+        for (int k = 0; k < customers_copy.size(); k++)
+        {
             coefficients.push_back(customers_copy[k].demand / time_to_arrive(vehicles_copy[j], customers_copy[k]));
         }
         heapsort(customers_copy, coefficients, customers_copy.size());
@@ -217,20 +284,27 @@ std::vector<std::vector<int>> greedy_randomized(Transport transport, Customers c
             r = i;
 
         int t = time_to_arrive(vehicles_copy[j], customers_copy[r]);
+        int ret_to_dep = time_to_arrive(vehicles_copy[j], customers_copy[0]);
         if (vehicles_copy[j].capacity >= customers_copy[r].demand &&
-            vehicles_copy[j].time + t <= customers_copy[r].time_window_end) {
+            vehicles_copy[j].time + t <= customers_copy[r].time_window_end &&
+            vehicles_copy[j].time + t + customers_copy[r].service_time < ret_to_dep)
+        {
             vehicles_copy[j].capacity -= customers_copy[r].demand;
             vehicles_copy[j].time += t + customers_copy[r].service_time;
             vehicles_copy[j].x_cord = customers_copy[r].x_cord;
             vehicles_copy[j].y_cord = customers_copy[r].y_cord;
-            route[customers_copy[r].id - 1] = 1;
+            route.push_back(customers_copy[r].id);
             customers_copy.erase(customers_copy.begin() + i);
             coefficients.clear();
-        } else {
-            if (i == customers_copy.size()) {
+        }
+        else
+        {
+            if (i == customers_copy.size())
+            {
                 i = 0;
                 result.push_back(route);
-                if (++j == vehicles_copy.size()) {
+                if (++j == vehicles_copy.size() && customers_copy.size() != 0)
+                {
                     return {{}};
                 }
                 continue;
@@ -240,6 +314,84 @@ std::vector<std::vector<int>> greedy_randomized(Transport transport, Customers c
             i++;
     }
     return result;
+}
+
+int grasp(Transport transport, Customers customers)
+{
+    int best = -1;
+    bool stop = false;
+    while (!stop)
+    {
+        vector<vector<int>> instance = greedy_randomized(transport, customers);
+        while (instance.empty())
+        {
+            instance = greedy_randomized(transport, customers);
+        }
+        int local_best = local_search(instance, transport, customers);
+        if (local_best < best || best == -1)
+        {
+            best = local_best;
+        }
+    }
+    return best;
+}
+
+int local_search(vector<vector<int>> solution, Transport transport, Customers customers)
+{
+    vector<vector<int>> new_solution = solution;
+    int best_cost = cost(solution, transport, customers);
+    while (1)
+    {
+        int i = rand() % new_solution.size();
+        int j = rand() % new_solution.size();
+        while (i == j)
+        {
+            j = rand() % new_solution.size();
+        }
+
+        int k = rand() % new_solution[i].size();
+        int l = rand() % new_solution[j].size();
+
+        swap(new_solution[i][k], new_solution[j][l]);
+        int new_cost = cost(new_solution, transport, customers);
+        if (new_cost != -1 && new_cost < best_cost)
+        {
+            best_cost = new_cost;
+        }
+        else
+        {
+            swap(new_solution[i][k], new_solution[j][l]);
+        }
+    }
+    return best_cost;
+}
+
+int cost(vector<vector<int>> solution, Transport transport, Customers customers)
+{
+    int total_cost = 0;
+    for (int i = 0; i < solution.size(); i++)
+    {
+        vehicle dummy_vehicle(transport.vehicle_cap, transport.x_cord_of_dispatcher, transport.y_cord_of_dispatcher);
+        for (int j = 0; j < solution[i].size(); j++)
+        {
+            int t = time_to_arrive(dummy_vehicle, customers.customers[i]);
+            if (t > customers.customers[i].time_window_end)
+            {
+                return -1;
+            }
+            dummy_vehicle.capacity -= customers.customers[i].demand;
+            dummy_vehicle.time += t + customers.customers[i].service_time;
+            dummy_vehicle.x_cord = customers.customers[i].x_cord;
+            dummy_vehicle.y_cord = customers.customers[i].y_cord;
+        }
+        int t = time_to_arrive(dummy_vehicle, customers.customers[0]);
+        if (t > customers.customers[0].time_window_end)
+        {
+            return -1;
+        }
+        total_cost += dummy_vehicle.time + t;
+    }
+    return total_cost;
 }
 
 // int fitness(std::vector<std::vector<int>> individual, std::vector<customer> customers, int capacity) {
