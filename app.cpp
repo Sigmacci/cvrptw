@@ -115,13 +115,17 @@ CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 int main(int argc, char *argv[]) {
     // check if file name or rand % is given
     if (argc != 3) {
-        cout << "Please enter file name or randomization percentage" << endl;
+        cout << "app file rand_percentage" << endl;
+        return 1;
+    }
+    int randomization_percentage = (int)strtol(argv[2], NULL, 10);
+    if (randomization_percentage < 0 || randomization_percentage > 100) {
+        cout << "rand_percentage must be between 0 and 100" << endl;
         return 1;
     }
     // define variables for storing data
     Transport transport;
     Customers customers;
-    int randomization_percentage = (int)strtol(argv[2], NULL, 10);
     // read data from file
     if (!read_data_from_file(argv[1], transport, customers)) {
         cout << "Error in reading data from file" << endl;
@@ -238,7 +242,7 @@ double time_to_arrive2(vehicle vehicle, customer customer) {
     return t;
 }
 
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, int randomization_percentage) {
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best, int randomization_percentage) {
     vector<vector<int>> result;
     vector<int> route;
     vector<double> coefficients;
@@ -289,7 +293,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
         }
     }
     result.push_back(route);
-    // *best = cost(result, customers, time_matrix);
+    *best = cost(result, customers, time_matrix);
     return result;
 }
 
