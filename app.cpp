@@ -21,7 +21,7 @@ using namespace std;
 
 typedef struct vehicle {
     int capacity;  // capacity of vehicle left
-    float time;    // spent time
+    double time;   // spent time
     int x_cord;
     int y_cord;
 
@@ -101,14 +101,14 @@ class CodeExecutionCutoffTimer {
 };
 
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
-float time_to_arrive(int x1, int x2, int y1, int y2);
+double time_to_arrive(int x1, int x2, int y1, int y2);
 void saveToFile(vector<vector<int>> solution, double cost);
 void chechIfDone(CodeExecutionCutoffTimer timer);
 bool valid(Customers customers, Transport transport);
-float grasp(Transport transport, Customers customers);
-double local_search(vector<vector<int>> solution, Transport transport, Customers customers, float **time_matrix);
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, float **time_matrix);
-double cost(vector<vector<int>> solution, Customers customers, float **time_matrix);
+double grasp(Transport transport, Customers customers);
+vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best);
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best);
+double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
@@ -222,14 +222,12 @@ bool valid(Customers customers, Transport transport) {
 
 /// @brief Calculate time from vehicle to traget customer
 /// @return time neccessary to arrive to customer
-float time_to_arrive(int x1, int x2, int y1, int y2) {
-    return sqrt(
-        pow(x1 - x2, 2) +
-        pow(y1 - y2, 2));
+double time_to_arrive(int x1, int x2, int y1, int y2) {
+    return sqrt(pow((double)x1 - (double)x2, 2) + pow((double)y1 - (double)y2, 2));
 }
 
-float time_to_arrive2(vehicle vehicle, customer customer) {
-    float t = sqrt(
+double time_to_arrive2(vehicle vehicle, customer customer) {
+    double t = sqrt(
         pow(vehicle.x_cord - customer.x_cord, 2) +
         pow(vehicle.y_cord - customer.y_cord, 2));
     if (t < customer.time_window_start) {
@@ -238,7 +236,7 @@ float time_to_arrive2(vehicle vehicle, customer customer) {
     return t;
 }
 
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, float **time_matrix) {
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best) {
     vector<vector<int>> result;
     vector<int> route;
     vector<double> coefficients;
@@ -254,7 +252,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
         double max = 0;
         int maxk = -1;
         for (int k = 0; k < customers_copy.size(); k++) {
-            coefficients.push_back((float)customers_copy[k].demand / time_matrix[prev_customer_id][customers.customers[k].id + 1]);
+            coefficients.push_back((double)customers_copy[k].demand / time_matrix[prev_customer_id][customers.customers[k].id]);
             if (max < coefficients.back()) {
                 max = coefficients.back();
                 maxk = k;
@@ -268,10 +266,10 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
             else
                 r = maxk;
 
-            float tmpT = time_matrix[prev_customer_id][customers_copy[r].id] + transport.vehicles[j].time;
-            if (tmpT <= (float)customers_copy[r].time_window_end && transport.vehicles[j].capacity >= customers_copy[r].demand && tmpT + (float)customers_copy[r].service_time + time_matrix[customers_copy[r].id][0] <= (float)customers.customers[0].time_window_end) {
-                transport.vehicles[j].time = tmpT < (float)customers_copy[r].time_window_start ? (float)customers_copy[r].time_window_start : tmpT;
-                transport.vehicles[j].time += (float)customers_copy[r].service_time;
+            double tmpT = time_matrix[prev_customer_id][customers_copy[r].id] + transport.vehicles[j].time;
+            if (tmpT <= (double)customers_copy[r].time_window_end && transport.vehicles[j].capacity >= customers_copy[r].demand && tmpT + (double)customers_copy[r].service_time + time_matrix[customers_copy[r].id][0] <= (double)customers.customers[0].time_window_end) {
+                transport.vehicles[j].time = tmpT < (double)customers_copy[r].time_window_start ? (double)customers_copy[r].time_window_start : tmpT;
+                transport.vehicles[j].time += (double)customers_copy[r].service_time;
                 transport.vehicles[j].x_cord = customers_copy[r].x_cord;
                 transport.vehicles[j].y_cord = customers_copy[r].y_cord;
                 transport.vehicles[j].capacity -= customers_copy[r].demand;
@@ -280,25 +278,6 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
                 coefficients.clear();
                 iter = ITERATIONS_OF_POINT_SEARCH + 1;
             }
-
-            //     float t = time_matrix[prev_customer_id][customers_copy[r].id];
-            //     transport.vehicles[j].time += t;
-            //     if (transport.vehicles[j].time < (float)customers_copy[r].time_window_start) {
-            //         transport.vehicles[j].time = (float)customers_copy[r].time_window_start;
-            //     float ret_to_dep = time_matrix[customers_copy[r].id][0];
-            //     if (transport.vehicles[j].capacity >= customers_copy[r].demand &&
-            //         transport.vehicles[j].time <= (float)customers_copy[r].time_window_end &&
-            //         transport.vehicles[j].time + (float)customers_copy[r].service_time + ret_to_dep <= (float)customers.customers[0].time_window_end) {
-            //         transport.vehicles[j].capacity -= customers_copy[r].demand;
-            //         transport.vehicles[j].time += (float)customers_copy[r].service_time;
-            //         transport.vehicles[j].x_cord = customers_copy[r].x_cord;
-            //         transport.vehicles[j].y_cord = customers_copy[r].y_cord;
-            //         route.push_back(customers_copy[r].id);
-            //         customers_copy.erase(customers_copy.begin() + r);
-            //         coefficients.clear();
-            //         iter = ITERATIONS_OF_POINT_SEARCH + 1;
-            //     }
-            // }
             chechIfDone(timer);
         }
         if (iter < ITERATIONS_OF_POINT_SEARCH + 1) {
@@ -308,14 +287,15 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
         }
     }
     result.push_back(route);
+    *best = cost(result, customers, time_matrix);
     return result;
 }
 
-float grasp(Transport transport, Customers customers) {
-    double best = numeric_limits<double>::max(), local_best = numeric_limits<double>::max();
-    float **time_matrix = new float *[customers.customers.size()];
+double grasp(Transport transport, Customers customers) {
+    double best, local_best;
+    double **time_matrix = new double *[customers.customers.size()];
     for (int i = 0; i < customers.customers.size(); i++) {
-        time_matrix[i] = new float[customers.customers.size()];
+        time_matrix[i] = new double[customers.customers.size()];
         for (int j = 0; j < i + 1; j++) {
             time_matrix[i][j] = time_to_arrive(customers.customers[i].x_cord, customers.customers[j].x_cord, customers.customers[i].y_cord, customers.customers[j].y_cord);
             time_matrix[j][i] = time_matrix[i][j];
@@ -326,75 +306,136 @@ float grasp(Transport transport, Customers customers) {
     int iter = 0;
     while (iter++ < ITERATIONS_OF_GRASP) {
         cout << "iter: " << iter << endl;
-        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix);
-        local_best = local_search(instance, transport, customers, time_matrix);
-
+        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &best);
+        vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_best);
+        // local_best = numeric_limits<double>::max();
+        cout << "local best: " << local_best << endl;
+        cout << "best: " << best << endl;
         if (local_best < best && local_best != -1) {
             best = local_best;
+            saveToFile(local_solution, local_best);
+        } else {
+            saveToFile(instance, best);
         }
-        cout << "best: " << best << endl;
-        saveToFile(instance, best);
         chechIfDone(timer);
     }
     return best;
 }
 
-double local_search(vector<vector<int>> solution, Transport transport, Customers customers, float **time_matrix) {
+bool isRouteValid(vector<int> route, int veh_cap, double **time_matrix, Customers customers) {
+    double time = 0.0;
+    int cap = 0;
+    for (int n = 0; n < route.size(); n++) {
+        time += time_matrix[route[n]][route[n - 1]];
+        if (time > (double)customers.customers[route[n]].time_window_end) {
+            return false;
+        }
+        if (time <= (double)customers.customers[route[n]].time_window_start) {
+            time = (double)customers.customers[route[n]].time_window_start;
+        }
+        time += (double)customers.customers[route[n]].service_time;
+        cap += customers.customers[route[n]].demand;
+        if (cap > veh_cap) {
+            return false;
+        }
+    }
+    if (time + time_matrix[route[route.size() - 1]][0] > (double)customers.customers[0].time_window_end) {
+        return false;
+    }
+    return true;
+}
+
+vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best) {
     vector<vector<int>> new_solution;
     new_solution.assign(solution.begin(), solution.end());
-    double best_cost = cost(solution, customers, time_matrix);
-    if (best_cost == -1) return -1;
     int iterations = 0;
+    double best_cost = numeric_limits<double>::max();
     while (iterations++ < ITERATIONS_OF_LOCAL_SEARCH) {
         int i = rand() % new_solution.size();
         int j = rand() % new_solution.size();
-        // while (i == j) {
-        //     j = rand() % new_solution.size();
-        // }
-
         int k = rand() % new_solution[i].size();
         int l = rand() % new_solution[j].size();
-        swap(new_solution[i][k], new_solution[j][l]);
+        if (i == j && k == l) continue;
+        int tmp = new_solution[i][k];
+        new_solution[i][k] = new_solution[j][l];
+        new_solution[j][l] = tmp;
+
+        if (!isRouteValid(new_solution[i], transport.vehicle_cap, time_matrix, customers) || !isRouteValid(new_solution[j], transport.vehicle_cap, time_matrix, customers)) {
+            new_solution[j][l] = new_solution[i][k];
+            new_solution[i][k] = tmp;
+            continue;
+        }
+
         double new_cost = cost(new_solution, customers, time_matrix);
         if (new_cost != -1 && new_cost < best_cost) {
+            *best = new_cost;
             best_cost = new_cost;
-            solution.clear();
-            solution.assign(new_solution.begin(), new_solution.end());
             iterations = 0;
         } else {
-            swap(new_solution[i][k], new_solution[j][l]);
+            new_solution[j][l] = new_solution[i][k];
+            new_solution[i][k] = tmp;
         }
         chechIfDone(timer);
     }
     // cout << best_cost << endl;
-    return best_cost;
+    return new_solution;
 }
-
-double cost(vector<vector<int>> solution, Customers customers, float **time_matrix) {
-    double total_time = 0;
+double distance(int x1, int y1, int x2, int y2) {
+    return sqrt(pow((double)x1 - (double)x2, 2) + pow((double)y1 - (double)y2, 2));
+}
+double cost(vector<vector<int>> solution, Customers customers, double **time_matrix) {
+    double total_time = 0.0;
     for (int veh = 0; veh < solution.size(); veh++) {
-        double time = time_matrix[0][solution[veh][0]];
-        if (time < customers.customers[solution[veh][0]].time_window_start) {
-            time = (double)customers.customers[solution[veh][0]].time_window_start;
-        }
-        time += (double)customers.customers[solution[veh][0]].service_time;
-        for (int pos = 1; pos < solution[veh].size(); pos++) {
-            time += time_matrix[solution[veh][pos]][solution[veh][pos - 1]];
-            if (time > (double)customers.customers[solution[veh][pos]].time_window_end) {
+        double veh_time = 0.0;
+        int prev_point = 0;
+        for (int point = 0; point < solution[veh].size(); point++) {
+            double t = time_matrix[prev_point][solution[veh][point]];
+            // double t = distance(customers.customers[solution[veh][point]].x_cord, customers.customers[solution[veh][point]].y_cord, customers.customers[prev_point].x_cord, customers.customers[prev_point].y_cord);
+            if (veh_time + t > (double)customers.customers[solution[veh][point]].time_window_end) {
                 return -1;
             }
-            if (time < (double)customers.customers[solution[veh][pos]].time_window_start) {
-                time = (double)customers.customers[solution[veh][pos]].time_window_start;
+            if (veh_time + t <= (double)customers.customers[solution[veh][point]].time_window_start) {
+                veh_time = (double)customers.customers[solution[veh][point]].time_window_start;
+            } else {
+                veh_time += t;
             }
-            time += (double)customers.customers[solution[veh][pos]].service_time;
+            veh_time += (double)customers.customers[solution[veh][point]].service_time;
+            prev_point = solution[veh][point];
         }
-        time += time_matrix[solution[veh][solution[veh].size() - 1]][0];
-        if (time > (double)customers.customers[0].time_window_end) {
+        veh_time += time_matrix[prev_point][0];
+        // veh_time += distance(customers.customers[0].x_cord, customers.customers[0].y_cord, customers.customers[prev_point].x_cord, customers.customers[prev_point].y_cord);
+        if (veh_time > (double)customers.customers[0].time_window_end) {
             return -1;
         }
-        total_time += time;
+        total_time += veh_time;
     }
+    // cout << "total: " << total_time << endl;
     return total_time;
+
+    // double total_time = 0.0;
+    // for (int veh = 0; veh < solution.size(); veh++) {
+    //     double time = time_matrix[0][solution[veh][0]];
+    //     if (time <= (double)customers.customers[solution[veh][0]].time_window_start) {
+    //         time = (double)customers.customers[solution[veh][0]].time_window_start;
+    //     }
+    //     time += (double)customers.customers[solution[veh][0]].service_time;
+    //     for (int pos = 1; pos < solution[veh].size(); pos++) {
+    //         time += time_matrix[solution[veh][pos]][solution[veh][pos - 1]];
+    //         if (time > (double)customers.customers[solution[veh][pos]].time_window_end) {
+    //             return -1;
+    //         }
+    //         if (time <= (double)customers.customers[solution[veh][pos]].time_window_start) {
+    //             time = (double)customers.customers[solution[veh][pos]].time_window_start;
+    //         }
+    //         time += (double)customers.customers[solution[veh][pos]].service_time;
+    //     }
+    //     time += time_matrix[solution[veh][solution[veh].size() - 1]][0];
+    //     if (time > (double)customers.customers[0].time_window_end) {
+    //         return -1;
+    //     }
+    //     total_time += time;
+    // }
+    // return total_time;
 }
 
 // int fitness(std::vector<std::vector<int>> individual, std::vector<customer> customers, int capacity) {
