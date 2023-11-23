@@ -105,22 +105,23 @@ double time_to_arrive(int x1, int x2, int y1, int y2);
 void saveToFile(vector<vector<int>> solution, double cost);
 void chechIfDone(CodeExecutionCutoffTimer timer);
 bool valid(Customers customers, Transport transport);
-double grasp(Transport transport, Customers customers);
+double grasp(Transport transport, Customers customers, int randomization_percentage);
 vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best, double best_cost);
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best);
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, int randomization_percentage);
 double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
 int main(int argc, char *argv[]) {
-    // check if file name is given
-    if (argc != 2) {
-        cout << "Please enter file name" << endl;
+    // check if file name or rand % is given
+    if (argc != 3) {
+        cout << "Please enter file name or randomization percentage" << endl;
         return 1;
     }
     // define variables for storing data
     Transport transport;
     Customers customers;
+    int randomization_percentage = (int)strtol(argv[2], NULL, 10);
     // read data from file
     if (!read_data_from_file(argv[1], transport, customers)) {
         cout << "Error in reading data from file" << endl;
@@ -140,7 +141,7 @@ int main(int argc, char *argv[]) {
     // }
     // calculateDistanceMatrix(customers.customers, distanceMatrix);
 
-    grasp(transport, customers);
+    grasp(transport, customers, randomization_percentage);
 
     return 0;
 
@@ -176,7 +177,8 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
     getline(file, line);           // CUSTOMER
     getline(file, line);           // HEADERS
     while (getline(file, line)) {  // customer data
-        if (line.length() < 7) continue;
+        if (line.length() < 7)
+            continue;
         istringstream iss(line);
         int id, x_cord, y_cord, demand, time_window_start, time_window_end, service_time;
         iss >> id >> x_cord >> y_cord >> demand >> time_window_start >> time_window_end >> service_time;
@@ -236,7 +238,7 @@ double time_to_arrive2(vehicle vehicle, customer customer) {
     return t;
 }
 
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best) {
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, int randomization_percentage) {
     vector<vector<int>> result;
     vector<int> route;
     vector<double> coefficients;
@@ -261,7 +263,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
 
         int iter = 0;
         while (++iter < ITERATIONS_OF_POINT_SEARCH) {
-            if (rand() % 2 == 0 && customers_copy.size() > 1)
+            if (rand() % 101 <= randomization_percentage && customers_copy.size() > 1)
                 r = (rand() % (customers_copy.size() - 1)) + 1;
             else
                 r = maxk;
@@ -287,11 +289,11 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
         }
     }
     result.push_back(route);
-    *best = cost(result, customers, time_matrix);
+    // *best = cost(result, customers, time_matrix);
     return result;
 }
 
-double grasp(Transport transport, Customers customers) {
+double grasp(Transport transport, Customers customers, int randomization_percentage) {
     double root_cost, local_cost, best_cost = numeric_limits<double>::max();
     double **time_matrix = new double *[customers.customers.size()];
     for (int i = 0; i < customers.customers.size(); i++) {
@@ -306,7 +308,7 @@ double grasp(Transport transport, Customers customers) {
     int iter = 0;
     while (iter++ < ITERATIONS_OF_GRASP || RUN_FOREVER) {
         cout << "iter: " << iter << endl;
-        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost);
+        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost, randomization_percentage);
         vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_cost, root_cost);
         // local_best = numeric_limits<double>::max();
         cout << "local best: " << local_cost << endl;
@@ -356,7 +358,8 @@ vector<vector<int>> local_search(vector<vector<int>> solution, Transport transpo
         int j = rand() % new_solution.size();
         int k = rand() % new_solution[i].size();
         int l = rand() % new_solution[j].size();
-        if (i == j && k == l) continue;
+        if (i == j && k == l)
+            continue;
         int tmp = new_solution[i][k];
         new_solution[i][k] = new_solution[j][l];
         new_solution[j][l] = tmp;
