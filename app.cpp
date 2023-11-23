@@ -14,6 +14,7 @@
 #define EXECUTION_TIME 180.0
 #define RUN_FOREVER false  // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
 #define ITERATIONS_OF_LOCAL_SEARCH 100
+#define RAND_PERCENTAGE 50  // 0-100 rand of greedy
 #define ITERATIONS_OF_GRASP 1000
 #define ITERATIONS_OF_POINT_SEARCH 100
 
@@ -105,22 +106,17 @@ double time_to_arrive(int x1, int x2, int y1, int y2);
 void saveToFile(vector<vector<int>> solution, double cost);
 void chechIfDone(CodeExecutionCutoffTimer timer);
 bool valid(Customers customers, Transport transport);
-double grasp(Transport transport, Customers customers, int randomization_percentage);
+double grasp(Transport transport, Customers customers);
 vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best, double best_cost);
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, int randomization_percentage);
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix);
 double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
 int main(int argc, char *argv[]) {
     // check if file name or rand % is given
-    if (argc != 3) {
-        cout << "app file rand_percentage" << endl;
-        return 1;
-    }
-    int randomization_percentage = (int)strtol(argv[2], NULL, 10);
-    if (randomization_percentage < 0 || randomization_percentage > 100) {
-        cout << "rand_percentage must be between 0 and 100" << endl;
+    if (argc != 2) {
+        cout << "app file" << endl;
         return 1;
     }
     // define variables for storing data
@@ -147,7 +143,7 @@ int main(int argc, char *argv[]) {
     // }
     // calculateDistanceMatrix(customers.customers, distanceMatrix);
 
-    grasp(transport, customers, randomization_percentage);
+    grasp(transport, customers);
 
     return 0;
 
@@ -244,7 +240,7 @@ double time_to_arrive2(vehicle vehicle, customer customer) {
     return t;
 }
 
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best, int randomization_percentage) {
+vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best) {
     vector<vector<int>> result;
     vector<int> route;
     vector<double> coefficients;
@@ -269,7 +265,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
 
         int iter = 0;
         while (++iter < ITERATIONS_OF_POINT_SEARCH) {
-            if (rand() % 101 <= randomization_percentage && customers_copy.size() > 1)
+            if (rand() % 101 <= RAND_PERCENTAGE && customers_copy.size() > 1)
                 r = (rand() % (customers_copy.size() - 1)) + 1;
             else
                 r = maxk;
@@ -299,7 +295,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
     return result;
 }
 
-double grasp(Transport transport, Customers customers, int randomization_percentage) {
+double grasp(Transport transport, Customers customers) {
     double root_cost, local_cost, best_cost = numeric_limits<double>::max();
     double **time_matrix = new double *[customers.customers.size()];
     for (int i = 0; i < customers.customers.size(); i++) {
@@ -314,7 +310,7 @@ double grasp(Transport transport, Customers customers, int randomization_percent
     int iter = 0;
     while (iter++ < ITERATIONS_OF_GRASP || RUN_FOREVER) {
         cout << "iter: " << iter << endl;
-        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost, randomization_percentage);
+        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost);
         vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_cost, root_cost);
         // local_best = numeric_limits<double>::max();
         cout << "local best: " << local_cost << endl;
