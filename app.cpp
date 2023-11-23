@@ -12,7 +12,7 @@
 #include <vector>
 
 #define EXECUTION_TIME 180.0
-
+#define RUN_FOREVER false  // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
 #define ITERATIONS_OF_LOCAL_SEARCH 100
 #define ITERATIONS_OF_GRASP 1000
 #define ITERATIONS_OF_POINT_SEARCH 100
@@ -304,7 +304,7 @@ double grasp(Transport transport, Customers customers) {
     }
     srand(time(NULL));
     int iter = 0;
-    while (iter++ < ITERATIONS_OF_GRASP) {
+    while (iter++ < ITERATIONS_OF_GRASP || RUN_FOREVER) {
         cout << "iter: " << iter << endl;
         vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &best);
         vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_best);
