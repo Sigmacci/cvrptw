@@ -133,8 +133,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (!valid(customers, transport)) {
-        // TODO edit save to file
-        cout << "Error in data" << endl;
+        ofstream file("solution.txt");
+        file << -1 << " " << setprecision(5) << fixed << 0.0 << "\n";
+        file.close();
+        cout << "Solution does not exist" << endl;
         return 1;
     }
     // create distance matrix
