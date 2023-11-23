@@ -106,7 +106,7 @@ void saveToFile(vector<vector<int>> solution, double cost);
 void chechIfDone(CodeExecutionCutoffTimer timer);
 bool valid(Customers customers, Transport transport);
 double grasp(Transport transport, Customers customers);
-vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best);
+vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best, double best_cost);
 vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best);
 double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
 
@@ -292,7 +292,7 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
 }
 
 double grasp(Transport transport, Customers customers) {
-    double best, local_best;
+    double root_cost, local_cost, best_cost = numeric_limits<double>::max();
     double **time_matrix = new double *[customers.customers.size()];
     for (int i = 0; i < customers.customers.size(); i++) {
         time_matrix[i] = new double[customers.customers.size()];
@@ -306,20 +306,21 @@ double grasp(Transport transport, Customers customers) {
     int iter = 0;
     while (iter++ < ITERATIONS_OF_GRASP || RUN_FOREVER) {
         cout << "iter: " << iter << endl;
-        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &best);
-        vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_best);
+        vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost);
+        vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_cost, root_cost);
         // local_best = numeric_limits<double>::max();
-        cout << "local best: " << local_best << endl;
-        cout << "best: " << best << endl;
-        if (local_best < best && local_best != -1) {
-            best = local_best;
-            saveToFile(local_solution, local_best);
-        } else {
-            saveToFile(instance, best);
+        cout << "local best: " << local_cost << endl;
+        cout << "best: " << root_cost << endl;
+        if (local_cost < best_cost && local_cost != -1) {
+            best_cost = local_cost;
+            saveToFile(local_solution, local_cost);
+        } else if (root_cost < best_cost && root_cost != -1) {
+            best_cost = root_cost;
+            saveToFile(instance, root_cost);
         }
         chechIfDone(timer);
     }
-    return best;
+    return best_cost;
 }
 
 bool isRouteValid(vector<int> route, int veh_cap, double **time_matrix, Customers customers) {
@@ -345,11 +346,11 @@ bool isRouteValid(vector<int> route, int veh_cap, double **time_matrix, Customer
     return true;
 }
 
-vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best) {
+vector<vector<int>> local_search(vector<vector<int>> solution, Transport transport, Customers customers, double **time_matrix, double *best, double best_cost) {
     vector<vector<int>> new_solution;
     new_solution.assign(solution.begin(), solution.end());
     int iterations = 0;
-    double best_cost = numeric_limits<double>::max();
+    // double best_cost = numeric_limits<double>::max();
     while (iterations++ < ITERATIONS_OF_LOCAL_SEARCH) {
         int i = rand() % new_solution.size();
         int j = rand() % new_solution.size();
