@@ -12,11 +12,11 @@
 #include <vector>
 
 #define EXECUTION_TIME 180.0
-#define RUN_FOREVER false  // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
-#define ITERATIONS_OF_LOCAL_SEARCH 100
-#define RAND_PERCENTAGE 50  // 0-100 rand of greedy
-#define ITERATIONS_OF_GRASP 1000
-#define ITERATIONS_OF_POINT_SEARCH 100
+#define RUN_FOREVER false               // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
+#define ITERATIONS_OF_GRASP 280         // best tested value 280
+#define RAND_PERCENTAGE 60              // best tested value 60 ,0-100 rand of greedy
+#define ITERATIONS_OF_LOCAL_SEARCH 400  // best tested value 400
+#define ITERATIONS_OF_POINT_SEARCH 500  // best tested value 500
 
 using namespace std;
 
@@ -97,7 +97,13 @@ class CodeExecutionCutoffTimer {
     bool isTimeUp() {
         chrono::time_point<chrono::system_clock> end = chrono::system_clock::now();
         chrono::duration<double> elapsed_seconds = end - start;
+        // return false;
         return elapsed_seconds.count() > targetTimeInSeconds;
+    }
+    double timeElapsed() {
+        chrono::time_point<chrono::system_clock> end = chrono::system_clock::now();
+        chrono::duration<double> elapsed_seconds = end - start;
+        return elapsed_seconds.count();
     }
 };
 
@@ -112,6 +118,15 @@ vector<vector<int>> greedy_randomized(Transport transport, Customers customers, 
 double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
+
+// int ttt = 3;  //+2
+// void tmp(int n, double time) {
+//     ifstream file("solution.txt", ios::in);
+//     ofstream file2("zzzout.txt", ios::app);
+//     file2 << n << " " << file.rdbuf() << " " << time << endl;
+//     file.close();
+//     file2.close();
+// }
 
 int main(int argc, char *argv[]) {
     // check if file name or rand % is given
@@ -135,24 +150,41 @@ int main(int argc, char *argv[]) {
         cout << "Solution does not exist" << endl;
         return 1;
     }
-    // create distance matrix
-    // float **distanceMatrix;
-    // distanceMatrix = new float *[customers.customers.size()];
-    // for (int n = 0; n < customers.customers.size(); n++) {
-    //     distanceMatrix[n] = new float[customers.customers.size()];
-    // }
-    // calculateDistanceMatrix(customers.customers, distanceMatrix);
-
     grasp(transport, customers);
 
-    return 0;
+    // for (int n = 27; n <= 1002; n += 25) {
+    //     ttt = n;
+    //     // define variables for storing data
+    //     Transport transport;
+    //     Customers customers;
+    //     // read data from file
+    //     if (!read_data_from_file(argv[1], transport, customers)) {
+    //         cout << "Error in reading data from file" << endl;
+    //         return 1;
+    //     }
 
-    // customer home(0, 0, 0, 0, 0, 0, 0);
-    // customers.push_back(home);
+    //     if (!valid(customers, transport)) {
+    //         ofstream file("solution.txt");
+    //         file << -1 << " " << setprecision(5) << fixed << 0.0 << "\n";
+    //         file.close();
+    //         cout << "Solution does not exist" << endl;
+    //         return 1;
+    //     }
+    //     cout << n << endl;
+    //     chrono::time_point<chrono::system_clock> start = chrono::system_clock::now();
+    //     grasp(transport, customers);
+    //     chrono::time_point<chrono::system_clock> end = chrono::system_clock::now();
+    //     chrono::duration<double> elapsed_seconds = end - start;
+    //     tmp(n - 2, elapsed_seconds.count());
+    // }
+    cout << "Solution in file solution.txt" << endl;
+    return 0;
 }
+
 void chechIfDone(CodeExecutionCutoffTimer t) {
     if (t.isTimeUp()) {
-        cout << "Time is up" << endl;
+        cout << "Time is up" << endl
+             << "Solution in file solution.txt" << endl;
         exit(0);
     }
 }
@@ -179,6 +211,7 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
     getline(file, line);           // CUSTOMER
     getline(file, line);           // HEADERS
     while (getline(file, line)) {  // customer data
+                                   // while (getline(file, line) && ttt--) {  // customer data
         if (line.length() < 7)
             continue;
         istringstream iss(line);
@@ -196,6 +229,7 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
 void saveToFile(vector<vector<int>> solution, double cost) {
     ofstream file("solution.txt");
     file << solution.size() << " " << setprecision(5) << fixed << cost << "\n";
+    // file << solution.size() << " " << setprecision(5) << fixed << cost;
     for (int i = 0; i < solution.size(); i++) {
         for (int j = 0; j < solution[i].size(); j++) {
             file << solution[i][j] << " ";
@@ -309,16 +343,14 @@ double grasp(Transport transport, Customers customers) {
     srand(time(NULL));
     int iter = 0;
     while (iter++ < ITERATIONS_OF_GRASP || RUN_FOREVER) {
-        cout << "iter: " << iter << endl;
         vector<vector<int>> instance = greedy_randomized(transport, customers, time_matrix, &root_cost);
         vector<vector<int>> local_solution = local_search(instance, transport, customers, time_matrix, &local_cost, root_cost);
-        // local_best = numeric_limits<double>::max();
-        cout << "local best: " << local_cost << endl;
-        cout << "best: " << root_cost << endl;
+        cout << "iteration: " << iter << " greedy_cost: " << setprecision(5) << fixed << root_cost << " local_cost: " << local_cost << endl;
         if (local_cost < best_cost && local_cost != -1) {
             best_cost = local_cost;
             saveToFile(local_solution, local_cost);
         } else if (root_cost < best_cost && root_cost != -1) {
+            // if (root_cost < best_cost && root_cost != -1) {
             best_cost = root_cost;
             saveToFile(instance, root_cost);
         }
@@ -374,7 +406,6 @@ vector<vector<int>> local_search(vector<vector<int>> solution, Transport transpo
 
         double new_cost = cost(new_solution, customers, time_matrix);
         if (new_cost != -1 && new_cost < best_cost) {
-            *best = new_cost;
             best_cost = new_cost;
             iterations = 0;
         } else {
@@ -383,6 +414,7 @@ vector<vector<int>> local_search(vector<vector<int>> solution, Transport transpo
         }
         chechIfDone(timer);
     }
+    *best = best_cost;
     // cout << best_cost << endl;
     return new_solution;
 }
@@ -417,148 +449,4 @@ double cost(vector<vector<int>> solution, Customers customers, double **time_mat
     }
     // cout << "total: " << total_time << endl;
     return total_time;
-
-    // double total_time = 0.0;
-    // for (int veh = 0; veh < solution.size(); veh++) {
-    //     double time = time_matrix[0][solution[veh][0]];
-    //     if (time <= (double)customers.customers[solution[veh][0]].time_window_start) {
-    //         time = (double)customers.customers[solution[veh][0]].time_window_start;
-    //     }
-    //     time += (double)customers.customers[solution[veh][0]].service_time;
-    //     for (int pos = 1; pos < solution[veh].size(); pos++) {
-    //         time += time_matrix[solution[veh][pos]][solution[veh][pos - 1]];
-    //         if (time > (double)customers.customers[solution[veh][pos]].time_window_end) {
-    //             return -1;
-    //         }
-    //         if (time <= (double)customers.customers[solution[veh][pos]].time_window_start) {
-    //             time = (double)customers.customers[solution[veh][pos]].time_window_start;
-    //         }
-    //         time += (double)customers.customers[solution[veh][pos]].service_time;
-    //     }
-    //     time += time_matrix[solution[veh][solution[veh].size() - 1]][0];
-    //     if (time > (double)customers.customers[0].time_window_end) {
-    //         return -1;
-    //     }
-    //     total_time += time;
-    // }
-    // return total_time;
 }
-
-// int fitness(std::vector<std::vector<int>> individual, std::vector<customer> customers, int capacity) {
-//     int total_fitness = 0;
-//     // int temp_fitness = 0;
-//     // vehicle dummy_vehicle(capacity);
-//     // for (auto route : individual) {
-//     //     for (int i = 1; i < customers.size(); i++) {
-//     //         if (route[i] == 1) {
-//     //             int t = time_to_arrive(dummy_vehicle, customers[i]);
-//     //             if (t > customers[i].time_window_end) {
-//     //                 return -1;
-//     //             }
-//     //             dummy_vehicle.capacity -= customers[i].demand;
-//     //             dummy_vehicle.time += t + customers[i].service_time;
-//     //             dummy_vehicle.x_cord = customers[i].x_cord;
-//     //             dummy_vehicle.y_cord = customers[i].y_cord;
-//     //             temp_fitness = dummy_vehicle.time;
-//     //         }
-//     //     }
-//     //     dummy_vehicle.capacity = capacity;
-//     //     dummy_vehicle.time = 0;
-//     //     dummy_vehicle.x_cord = 0;
-//     //     dummy_vehicle.y_cord = 0;
-//     //     total_fitness += temp_fitness;
-//     // }
-//     return total_fitness;
-// }
-
-// bool is_acceptable(std::vector<std::vector<int>> individual, int number_of_vehicles, int number_of_customers) {
-//     int check[number_of_customers] = {0};
-//     for (int i = 0; i < number_of_vehicles; i++) {
-//         for (int j = 0; j < number_of_customers; j++) {
-//             if (check[i] + individual[i][j] > 1) {
-//                 individual[i][j] = 0;
-//             }
-//             check[i] += individual[i][j];
-//         }
-//         if (check[i] != 1) {
-//             return false;
-//         }
-//     }
-//     return true;
-// }
-
-// int genetic_algorithm(std::vector<vehicle> vehicles, std::vector<customer> customers, int capacity, int number_of_individuals, float mutation_rate) {
-//     int k = 0;
-//     std::vector<std::vector<std::vector<int>>> population;
-//     std::vector<int> fitnesses;
-//     int min = -1;
-//     for (int i = 0; i < number_of_individuals; i++) {
-//         population.push_back(greedy_randomized(vehicles, customers));
-//         fitnesses.push_back(fitness(population[i], customers, capacity));
-//         min = fitnesses[i] < min || min == -1 ? fitnesses[i] : min;
-//     }
-//     while (k < 100) {
-//         std::vector<std::vector<std::vector<int>>> new_population;
-//         for (int i = 0; i < number_of_individuals; i++) {
-//             fitnesses.clear();
-//             // parent selection
-//             int parent1 = rand() % number_of_individuals;
-//             int parent2 = rand() % number_of_individuals;
-//             while (parent1 == parent2) {
-//                 parent2 = rand() % number_of_individuals;
-//             }
-
-//             int offspring1[vehicles.size()][customers.size() - 1], offspring2[vehicles.size()][customers.size() - 1];
-//             std::vector<std::vector<int>> final_offspring;
-//             final_offspring.resize(vehicles.size());
-
-//             // crossover
-//             for (int j = 0; j < vehicles.size(); j++) {
-//                 final_offspring[j].resize(customers.size() - 1);
-//                 for (int l = 0; l < customers.size() - 1; l++) {
-//                     if (population[parent1][j][l] == population[parent2][j][l]) {
-//                         offspring1[j][l] = population[parent1][j][l];
-//                         offspring2[j][l] = population[parent1][j][l];
-//                     } else {
-//                         if (rand() % 2 == 0) {
-//                             offspring1[j][l] = population[parent1][j][l];
-//                             offspring2[j][l] = population[parent2][j][l];
-//                         } else {
-//                             offspring1[j][l] = population[parent2][j][l];
-//                             offspring2[j][l] = population[parent1][j][l];
-//                         }
-//                     }
-//                 }
-//                 int decimal1 = 0, decimal2 = 0;
-//                 for (int l = customers.size() - 2; l >= 0; l--) {
-//                     decimal1 += pow(2, customers.size() - l - 2) * offspring1[j][l];
-//                     decimal2 += pow(2, customers.size() - l - 2) * offspring2[j][l];
-//                 }
-//                 decimal1 = customers.size() - decimal1 - 1;
-//                 decimal2 = customers.size() - decimal2 - 1;
-//                 for (int l = customers.size() - 2; l >= 0; l--) {
-//                     offspring1[j][l] = decimal1 % 2;
-//                     decimal1 /= 2;
-//                     offspring2[j][l] = decimal2 % 2;
-//                     decimal2 /= 2;
-//                     final_offspring[j][l] = (offspring1[j][l] & population[parent1][j][l]) | (offspring2[j][l] & population[parent2][j][l]);
-
-//                     // mutation
-//                     if (rand() % 100 < mutation_rate) {
-//                         final_offspring[j][l] = ~final_offspring[j][l];
-//                     }
-//                 }
-//                 int t = fitness(final_offspring, customers, capacity);
-//                 if (is_acceptable(final_offspring, vehicles.size(), customers.size() - 1) && t != -1) {
-//                     new_population[i].push_back(final_offspring[j]);
-//                     fitnesses.push_back(t);
-//                     min = t < min || min == -1 ? t : min;
-//                 }
-//             }
-//         }
-//         population.clear();
-//         population = new_population;
-//         k++;
-//     }
-//     return min;
-// }
