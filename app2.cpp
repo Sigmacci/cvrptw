@@ -1,5 +1,6 @@
 #include <time.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -11,14 +12,16 @@
 #include <string>
 #include <vector>
 
-#define EXECUTION_TIME 180.0
+#define EXECUTION_TIME 60.0
 #define RUN_FOREVER false               // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
 #define ITERATIONS_OF_GRASP 280         // best tested value ??
 #define RAND_PERCENTAGE 60              //  ,0-100 rand of greedy
 #define ITERATIONS_OF_POINT_SEARCH 500  //
 
-#define NUMBER_OF_OFFSPRINGS 10       //
+#define NUMBER_OF_ORIGINAL_PARENTS 100
+#define NUMBER_OF_OFFSPRINGS 100      //
 #define ITERATIONS_OF_OFFSPRINGS 100  //
+#define GROWTH_FACTOR 1.1             //
 
 using namespace std;
 
@@ -111,11 +114,11 @@ class CodeExecutionCutoffTimer {
 
 bool read_data_from_file(string path, Transport &transport, Customers &customers);
 double time_to_arrive(int x1, int x2, int y1, int y2);
-void saveToFile(vector<vector<int>> solution, double cost);
-void chechIfDone(CodeExecutionCutoffTimer timer);
-bool valid(Customers customers, Transport transport);
-double cost(vector<vector<int>> solution, Customers customers, double **time_matrix);
-void startFunction(Customers customers, Transport transport);
+void saveToFile(vector<vector<int>> &solution, double cost);
+void chechIfDone(CodeExecutionCutoffTimer &timer);
+bool valid(Customers &customers, Transport &transport);
+double cost(vector<vector<int>> &solution, Customers &customers, double **time_matrix);
+void startFunction(Customers &customers, Transport &transport);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
@@ -186,7 +189,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void chechIfDone(CodeExecutionCutoffTimer t) {
+void chechIfDone(CodeExecutionCutoffTimer &t) {
     if (t.isTimeUp()) {
         cout << "Time is up" << endl
              << "Solution in file solution.txt" << endl;
@@ -231,7 +234,7 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
     file.close();
     return true;
 }
-void saveToFile(vector<vector<int>> solution, double cost) {
+void saveToFile(vector<vector<int>> &solution, double cost) {
     ofstream file("solution.txt");
     file << solution.size() << " " << setprecision(5) << fixed << cost << "\n";
     // file << solution.size() << " " << setprecision(5) << fixed << cost;
@@ -244,7 +247,7 @@ void saveToFile(vector<vector<int>> solution, double cost) {
     file.close();
 }
 
-bool valid(Customers customers, Transport transport) {
+bool valid(Customers &customers, Transport &transport) {
     for (customer customer : customers.customers) {
         if (customer.time_window_start > customer.time_window_end)
             return false;
@@ -269,7 +272,7 @@ double time_to_arrive(int x1, int x2, int y1, int y2) {
     return sqrt(pow((double)x1 - (double)x2, 2) + pow((double)y1 - (double)y2, 2));
 }
 
-bool isRouteValid(vector<int> route, int veh_cap, double **time_matrix, Customers customers) {
+bool isRouteValid(vector<int> &route, int veh_cap, double **time_matrix, Customers &customers) {
     double time = 0.0;
     int cap = 0;
     for (int n = 0; n < route.size(); n++) {
@@ -294,7 +297,7 @@ bool isRouteValid(vector<int> route, int veh_cap, double **time_matrix, Customer
 double distance(int x1, int y1, int x2, int y2) {
     return sqrt(pow((double)x1 - (double)x2, 2) + pow((double)y1 - (double)y2, 2));
 }
-double cost(vector<vector<int>> solution, Customers customers, double **time_matrix) {
+double cost(vector<vector<int>> &solution, Customers &customers, double **time_matrix) {
     double total_time = 0.0;
     for (int veh = 0; veh < solution.size(); veh++) {
         double veh_time = 0.0;
@@ -324,7 +327,7 @@ double cost(vector<vector<int>> solution, Customers customers, double **time_mat
     return total_time;
 }
 
-bool is_acceptable(vector<vector<int>> individual, int number_of_vehicles, int number_of_customers) {
+bool is_acceptable(vector<vector<int>> &individual, int number_of_vehicles, int number_of_customers) {
     int check[number_of_customers] = {0};
     for (int i = 0; i < number_of_vehicles; i++) {
         for (int j = 0; j < number_of_customers; j++) {
@@ -340,7 +343,7 @@ bool is_acceptable(vector<vector<int>> individual, int number_of_vehicles, int n
     return true;
 }
 
-bool check_if_violates_time_windows(vector<int> route, Customers customers, double **time_matrix) {
+bool check_if_violates_time_windows(vector<int> &route, Customers &customers, double **time_matrix) {
     double time = 0.0;
     int prev_point = 0;
     for (int i = 0; i < route.size(); i++) {
@@ -360,7 +363,7 @@ bool check_if_violates_time_windows(vector<int> route, Customers customers, doub
     }
     return false;
 }
-vector<int> try_new_routes(vector<int> route, Customers customers, double **time_matrix) {
+vector<int> try_new_routes(vector<int> &route, Customers &customers, double **time_matrix) {
     for (int i = 0; i < route.size(); i++) {
         for (int j = 0; j < route.size(); j++) {
             if (i == j) {
@@ -376,10 +379,28 @@ vector<int> try_new_routes(vector<int> route, Customers customers, double **time
             }
         }
     }
+    chechIfDone(timer);
     return vector<int>();
 }
+vector<vector<int>> fix_routes(vector<int> &route, Customers &customers, double **time_matrix) {
+    vector<vector<int>> result;
+    vector<int> new_route;
+    int prev_point = 0;
+    for (int i = 0; i < route.size(); i++) {
+        new_route.push_back(route[i]);
+        if (check_if_violates_time_windows(new_route, customers, time_matrix)) {
+            new_route.pop_back();
+            result.push_back(new_route);
+            new_route.clear();
+            new_route.push_back(route[i]);
+        }
+    }
+    result.push_back(new_route);
+    chechIfDone(timer);
+    return result;
+}
 
-vector<vector<int>> greedy_randomized(Transport transport, Customers customers, double **time_matrix, double *best) {
+vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers, double **time_matrix, double *best) {
     vector<vector<int>> result;
     vector<int> route;
     vector<double> coefficients;
@@ -439,17 +460,27 @@ typedef struct {
     double cost;
 } pop_result;
 
-pop_result genetic_algorithm(Transport transport, Customers customers, double **time_matrix) {
+pop_result genetic_algorithm(Transport &transport, Customers &customers, double **time_matrix) {
     vector<pop_result> population;
     // start by generating one parent
     pop_result bestResult;
-    bestResult.routes = greedy_randomized(transport, customers, time_matrix, &bestResult.cost);
-    population.push_back(bestResult);
-    saveToFile(bestResult.routes, bestResult.cost);
+    bestResult.cost = numeric_limits<double>::max();
+    for (int i = 0; i < NUMBER_OF_ORIGINAL_PARENTS; i++) {
+        pop_result parent;
+        parent.routes = greedy_randomized(transport, customers, time_matrix, &parent.cost);
+        if (parent.cost < bestResult.cost) {
+            bestResult.cost = parent.cost;
+            bestResult.routes.clear();
+            bestResult.routes.assign(parent.routes.begin(), parent.routes.end());
+            saveToFile(bestResult.routes, bestResult.cost);
+        }
+        population.push_back(parent);
+    }
 
     int iter = 0;
     while (iter++ < ITERATIONS_OF_OFFSPRINGS) {
-        cout << "iteration: " << iter << endl;
+        int targetSize = (GROWTH_FACTOR * population.size());
+        cout << "iteration: " << iter << " pop size: " << population.size() << "target: " << targetSize << endl;
         vector<pop_result> new_population;
         // generate x offsprings from current population
         for (int parent = 0; parent < population.size(); parent++) {
@@ -483,15 +514,41 @@ pop_result genetic_algorithm(Transport transport, Customers customers, double **
                     for (int n = crossover_point_right; n < population[parent].routes[car2].size(); n++) {
                         newCar2.push_back(population[parent].routes[car2][n]);
                     }
-                    // kill the child if it is not valid
-                    if (!isRouteValid(newCar1, transport.vehicle_cap, time_matrix, customers) || !isRouteValid(newCar2, transport.vehicle_cap, time_matrix, customers))
-                        continue;
-
+                    // fix the child if it is not valid
                     offspring.routes.assign(population[parent].routes.begin(), population[parent].routes.end());
+
                     offspring.routes[car1].clear();
+                    if (!isRouteValid(newCar1, transport.vehicle_cap, time_matrix, customers)) {
+                        vector<int> tmp = try_new_routes(newCar1, customers, time_matrix);
+                        vector<vector<int>> fixed;
+                        if (tmp.size() == 0) {
+                            fixed = fix_routes(newCar1, customers, time_matrix);
+                            offspring.routes[car1].assign(fixed[0].begin(), fixed[0].end());
+                            for (int i = 1; i < fixed.size(); i++) {
+                                offspring.routes.push_back(fixed[i]);
+                            }
+                        } else {
+                            offspring.routes[car1].assign(tmp.begin(), tmp.end());
+                        }
+                    } else {
+                        offspring.routes[car1].assign(newCar1.begin(), newCar1.end());
+                    }
                     offspring.routes[car2].clear();
-                    offspring.routes[car1].assign(newCar1.begin(), newCar1.end());
-                    offspring.routes[car2].assign(newCar2.begin(), newCar2.end());
+                    if (!isRouteValid(newCar2, transport.vehicle_cap, time_matrix, customers)) {
+                        vector<int> tmp = try_new_routes(newCar2, customers, time_matrix);
+                        vector<vector<int>> fixed;
+                        if (tmp.size() == 0) {
+                            fixed = fix_routes(newCar2, customers, time_matrix);
+                            offspring.routes[car2].assign(fixed[0].begin(), fixed[0].end());
+                            for (int i = 1; i < fixed.size(); i++) {
+                                offspring.routes.push_back(fixed[i]);
+                            }
+                        } else {
+                            offspring.routes[car2].assign(tmp.begin(), tmp.end());
+                        }
+                    } else {
+                        offspring.routes[car2].assign(newCar2.begin(), newCar2.end());
+                    }
                 } else {
                     offspring.routes.assign(population[parent].routes.begin(), population[parent].routes.end());
                 }
@@ -525,7 +582,21 @@ pop_result genetic_algorithm(Transport transport, Customers customers, double **
                 // child survived in the wild
                 offspring.cost = cost(offspring.routes, customers, time_matrix);
                 if (offspring.cost != -1) {
-                    new_population.push_back(offspring);
+                    if (new_population.size() >= targetSize) {
+                        for (int i = 0; i < new_population.size(); i++) {
+                            if (new_population[i].cost > offspring.cost) {
+                                new_population.insert(new_population.begin() + i, offspring);
+                                new_population.pop_back();
+                                break;
+                            }
+                        }
+                    } else {
+                        new_population.push_back(offspring);
+                        if (new_population.size() >= targetSize) {
+                            sort(new_population.begin(), new_population.end(), [](pop_result &a, pop_result &b) { return a.cost < b.cost; });
+                        }
+                    }
+
                     if (offspring.cost < bestResult.cost) {
                         bestResult.routes.clear();
                         bestResult.routes.assign(offspring.routes.begin(), offspring.routes.end());
@@ -543,7 +614,7 @@ pop_result genetic_algorithm(Transport transport, Customers customers, double **
     return bestResult;
 }
 
-void startFunction(Customers customers, Transport transport) {
+void startFunction(Customers &customers, Transport &transport) {
     srand(time(NULL));
     // generate time matrix
     double **time_matrix = new double *[customers.customers.size()];
