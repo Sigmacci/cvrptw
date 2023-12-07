@@ -18,13 +18,13 @@
 #define RAND_PERCENTAGE 60              //  ,0-100 rand of greedy
 #define ITERATIONS_OF_POINT_SEARCH 500  //
 
-#define NUMBER_OF_ORIGINAL_PARENTS 10
-#define NUMBER_OF_OFFSPRINGS 100      //
-#define ITERATIONS_OF_OFFSPRINGS 100  //
-#define GROWTH_FACTOR 1.1             //
+#define NUMBER_OF_ORIGINAL_PARENTS 10  //
+#define NUMBER_OF_OFFSPRINGS 10        //
+#define ITERATIONS_OF_OFFSPRINGS 100   //
+#define GROWTH_FACTOR 1.1              //
+#define PERCENTAGE_OF_MUTATION 40      // 0-100
+#define PERCENTAGE_OF_CROSSOVER 10     // 0-100
 #define MAX_ITERATIONS_WITHOUT_IMPROVEMENT 20
-#define PERCENTAGE_OF_MUTATION 50
-#define PERCENTAGE_OF_CROSSOVER 1
 
 using namespace std;
 
@@ -122,6 +122,7 @@ void chechIfDone(CodeExecutionCutoffTimer &timer);
 bool valid(Customers &customers, Transport &transport);
 double cost(vector<vector<int>> &solution, Customers &customers, double **time_matrix);
 void startFunction(Customers &customers, Transport &transport);
+vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers, double **time_matrix, double *best);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
@@ -346,6 +347,29 @@ bool is_acceptable(vector<vector<int>> &individual, int number_of_vehicles, int 
     return true;
 }
 
+typedef struct {
+    vector<vector<int>> routes;
+    double cost;
+} pop_result;
+
+// TODO
+bool isEmpty(pop_result &result) {
+    for (int i = 0; i < result.routes.size(); i++)
+        if (result.routes[i].empty())
+            return true;
+    return false;
+}
+void listRoutes(pop_result &result) {
+    cout << "RESULT: " << endl;
+    for (int i = 0; i < result.routes.size(); i++) {
+        cout << i << ": " << result.routes[i].empty() << "  ";
+        for (int j = 0; j < result.routes[i].size(); j++) {
+            cout << result.routes[i][j] << " ";
+        }
+        cout << endl;
+    }
+}
+
 bool check_if_violates_time_windows(vector<int> &route, Customers &customers, double **time_matrix) {
     double time = 0.0;
     int prev_point = 0;
@@ -385,22 +409,22 @@ vector<int> try_new_routes(vector<int> &route, Customers &customers, double **ti
     chechIfDone(timer);
     return vector<int>();
 }
-vector<vector<int>> fix_routes(vector<int> &route, Customers &customers, double **time_matrix) {
-    vector<vector<int>> result;
-    vector<int> new_route;
-    int prev_point = 0;
-    for (int i = 0; i < route.size(); i++) {
-        new_route.push_back(route[i]);
-        if (check_if_violates_time_windows(new_route, customers, time_matrix)) {
-            new_route.pop_back();
-            result.push_back(new_route);
-            new_route.clear();
-            new_route.push_back(route[i]);
-        }
+vector<vector<int>> fix_routes(vector<int> &route, Customers &customers, double **time_matrix, Transport &transport) {
+    Transport tmp_transport;
+    tmp_transport.vehicle_cap = transport.vehicle_cap;
+    tmp_transport.x_cord_of_dispatcher = transport.x_cord_of_dispatcher;
+    tmp_transport.y_cord_of_dispatcher = transport.y_cord_of_dispatcher;
+    Customers tmp_customers;
+    tmp_customers.addCustomer(0, customers.customers[0].x_cord, customers.customers[0].y_cord, 0, customers.customers[0].time_window_start, customers.customers[0].time_window_end, 0);
+    for (int n = 0; n < route.size(); n++) {
+        tmp_customers.addCustomer(customers.customers[route[n]].id, customers.customers[route[n]].x_cord, customers.customers[route[n]].y_cord, customers.customers[route[n]].demand, customers.customers[route[n]].time_window_start, customers.customers[route[n]].time_window_end, customers.customers[route[n]].service_time);
     }
-    result.push_back(new_route);
-    chechIfDone(timer);
-    return result;
+    double best;
+    vector<vector<int>> response = greedy_randomized(tmp_transport, tmp_customers, time_matrix, &best);
+    pop_result tmp;
+    tmp.routes.clear();
+    tmp.routes.assign(response.begin(), response.end());
+    return response;
 }
 
 vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers, double **time_matrix, double *best) {
@@ -409,7 +433,6 @@ vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers
     vector<double> coefficients;
     vector<customer> customers_copy;
     customers_copy.assign(customers.customers.begin() + 1, customers.customers.end());
-
     int j = transport.dispatchNewVehicle(), r = 0;
     while (!customers_copy.empty()) {
         int prev_customer_id = 0;
@@ -418,14 +441,14 @@ vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers
         }
         double max = 0;
         int maxk = -1;
-        for (int k = 0; k < customers_copy.size(); k++) {
+        int k = 0;
+        for (; k < customers_copy.size(); k++) {
             coefficients.push_back((double)customers_copy[k].demand / time_matrix[prev_customer_id][customers.customers[k].id]);
             if (max < coefficients.back()) {
                 max = coefficients.back();
                 maxk = k;
             };
         }
-
         int iter = 0;
         while (++iter < ITERATIONS_OF_POINT_SEARCH) {
             if (rand() % 101 <= RAND_PERCENTAGE && customers_copy.size() > 1)
@@ -457,34 +480,31 @@ vector<vector<int>> greedy_randomized(Transport &transport, Customers &customers
     *best = cost(result, customers, time_matrix);
     return result;
 }
-typedef struct {
-    vector<vector<int>> routes;
-    double cost;
-} pop_result;
-bool save_child(pop_result &child, pop_result &bestResult, vector<pop_result> &population, int targetSize, Customers &customers, double **time_matrix) {
-    child.cost = cost(child.routes, customers, time_matrix);
-    if (child.cost != -1) {
-        bool found = false;
-        for (int i = 0; i < population.size(); i++) {
-            if (population[i].cost > child.cost) {
-                population.insert(population.begin() + i, child);
-                found = true;
-                break;
+
+void fix_crossed_child(pop_result &child, Customers &customers, double **time_matrix, Transport &transport) {
+    bool points[customers.customers.size() - 1] = {false};
+    int tmp = 0;
+    for (int n = child.routes.size() - 1; n >= 0; n--) {
+        for (int m = child.routes[n].size() - 1; m >= 0; m--) {
+            int tmp = child.routes[n][m];
+            if (points[child.routes[n][m] - 1]) {
+                child.routes[n].erase(child.routes[n].begin() + m);
+                if (child.routes[n].empty()) {
+                    child.routes.erase(child.routes.begin() + n);
+                }
             }
-        }
-        if (!found)
-            population.push_back(child);
-        if (population.size() > targetSize)
-            population.pop_back();
-        if (child.cost < bestResult.cost) {
-            bestResult.routes.clear();
-            bestResult.routes.assign(child.routes.begin(), child.routes.end());
-            bestResult.cost = child.cost;
-            saveToFile(bestResult.routes, bestResult.cost);
-            return true;
+            points[tmp - 1] = true;
         }
     }
-    return false;
+    vector<int> missing_points;
+    for (int n = 0; n < customers.customers.size() - 1; n++)
+        if (!points[n])
+            missing_points.push_back(n + 1);
+    if (missing_points.empty()) return;
+    vector<vector<int>> result = fix_routes(missing_points, customers, time_matrix, transport);
+
+    for (int i = 0; i < result.size(); i++)
+        child.routes.push_back(result[i]);
 }
 void mutate(pop_result &child, Customers &customers, double **time_matrix) {
     for (int k = 0; k < (PERCENTAGE_OF_MUTATION * child.routes.size()) / 100; k++) {
@@ -515,6 +535,32 @@ void mutate(pop_result &child, Customers &customers, double **time_matrix) {
         }
     }
 }
+bool save_child(pop_result &child, pop_result &bestResult, vector<pop_result> &population, int targetSize, Customers &customers, double **time_matrix) {
+    child.cost = cost(child.routes, customers, time_matrix);
+    cout << child.cost << endl;
+    if (child.cost != -1) {
+        bool found = false;
+        for (int i = 0; i < population.size(); i++) {
+            if (population[i].cost > child.cost) {
+                population.insert(population.begin() + i, child);
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            population.push_back(child);
+        if (population.size() >= targetSize)
+            population.pop_back();
+        if (child.cost < bestResult.cost) {
+            bestResult.routes.clear();
+            bestResult.routes.assign(child.routes.begin(), child.routes.end());
+            bestResult.cost = child.cost;
+            saveToFile(bestResult.routes, bestResult.cost);
+            return true;
+        }
+    }
+    return false;
+}
 
 pop_result genetic_algorithm(Transport &transport, Customers &customers, double **time_matrix) {
     vector<pop_result> population;
@@ -533,93 +579,98 @@ pop_result genetic_algorithm(Transport &transport, Customers &customers, double 
         population.push_back(parent);
     }
 
-    int iter = 0, iterations_without_improvement = 0;
+    int iter = 0;
+    int iterations_without_improvement = 0;
     while (iter++ < ITERATIONS_OF_OFFSPRINGS && ++iterations_without_improvement <= MAX_ITERATIONS_WITHOUT_IMPROVEMENT) {
         int targetSize = (GROWTH_FACTOR * population.size());
-        cout << "iteration: " << iter << " pop size: " << population.size() << "target: " << targetSize << endl;
+        cout << "iteration: " << iter << " pop size: " << population.size() << " target size: " << targetSize << endl;
         vector<pop_result> new_population;
         // generate x offsprings from current population
         for (int parent = 0; parent < population.size(); parent++) {
             save_child(population[parent], bestResult, new_population, targetSize, customers, time_matrix);
-            for (int kid = 0; kid < NUMBER_OF_OFFSPRINGS; kid++) {
-                pop_result offspring;
-                // choose two random cars
-                offspring.routes.assign(population[parent].routes.begin(), population[parent].routes.end());
-                if (population[parent].routes.size() > 1) {
-                    for (int q = 0; q < (PERCENTAGE_OF_CROSSOVER * population[parent].routes.size()) / 100; q++) {
-                        // for (int q = 0; q < 2; q++) {
-                        int car1 = rand() % population[parent].routes.size();
-                        int car2 = rand() % population[parent].routes.size();
-                        while (car1 == car2) {
-                            car2 = rand() % population[parent].routes.size();
-                        }
+            for (int i = 0; i < NUMBER_OF_OFFSPRINGS; i++) {
+                // select random father
+                int father = rand() % population.size();
+                while (father == parent)
+                    father = rand() % population.size();
 
-                        // choose crossover points
-                        vector<int> newCar1, newCar2;
-                        int smallestSize = min(population[parent].routes[car1].size(), population[parent].routes[car2].size());
-                        int crossover_point_left = rand() % smallestSize;                                                         //<0;size)
-                        int crossover_point_right = crossover_point_left + (rand() % (smallestSize - crossover_point_left)) + 1;  //(left;size>
-                        // crossover
-                        for (int n = 0; n < crossover_point_left; n++) {
-                            newCar1.push_back(population[parent].routes[car1][n]);
-                            newCar2.push_back(population[parent].routes[car2][n]);
-                        }
-                        for (int n = crossover_point_left; n < crossover_point_right; n++) {
-                            newCar1.push_back(population[parent].routes[car2][n]);
-                            newCar2.push_back(population[parent].routes[car1][n]);
-                        }
-                        for (int n = crossover_point_right; n < population[parent].routes[car1].size(); n++) {
-                            newCar1.push_back(population[parent].routes[car1][n]);
-                        }
-                        for (int n = crossover_point_right; n < population[parent].routes[car2].size(); n++) {
-                            newCar2.push_back(population[parent].routes[car2][n]);
-                        }
-                        // fix the child if it is not valid
+                pop_result mother_child, father_child;
+                mother_child.routes.assign(population[parent].routes.begin(), population[parent].routes.end());
+                father_child.routes.assign(population[father].routes.begin(), population[father].routes.end());
 
-                        offspring.routes[car1].clear();
-                        if (!isRouteValid(newCar1, transport.vehicle_cap, time_matrix, customers)) {
-                            vector<int> tmp = try_new_routes(newCar1, customers, time_matrix);
-                            vector<vector<int>> fixed;
-                            if (tmp.size() == 0) {
-                                fixed = fix_routes(newCar1, customers, time_matrix);
-                                offspring.routes[car1].assign(fixed[0].begin(), fixed[0].end());
-                                for (int i = 1; i < fixed.size(); i++) {
-                                    offspring.routes.push_back(fixed[i]);
-                                }
-                            } else {
-                                offspring.routes[car1].assign(tmp.begin(), tmp.end());
-                            }
-                        } else {
-                            offspring.routes[car1].assign(newCar1.begin(), newCar1.end());
-                        }
-                        offspring.routes[car2].clear();
-                        if (!isRouteValid(newCar2, transport.vehicle_cap, time_matrix, customers)) {
-                            vector<int> tmp = try_new_routes(newCar2, customers, time_matrix);
-                            vector<vector<int>> fixed;
-                            if (tmp.size() == 0) {
-                                fixed = fix_routes(newCar2, customers, time_matrix);
-                                offspring.routes[car2].assign(fixed[0].begin(), fixed[0].end());
-                                for (int i = 1; i < fixed.size(); i++) {
-                                    offspring.routes.push_back(fixed[i]);
-                                }
-                            } else {
-                                offspring.routes[car2].assign(tmp.begin(), tmp.end());
-                            }
-                        } else {
-                            offspring.routes[car2].assign(newCar2.begin(), newCar2.end());
-                        }
+                // crossover
+                int minGeneticSize = min(mother_child.routes.size(), father_child.routes.size());
+                for (int p = 0; p < (PERCENTAGE_OF_CROSSOVER * minGeneticSize) / 100; p++) {
+                    int car1 = rand() % mother_child.routes.size();
+                    int car2 = rand() % father_child.routes.size();
+                    vector<int> newCar1, newCar2;
+                    int smallestSize = min(mother_child.routes[car1].size(), father_child.routes[car2].size());
+
+                    int crossover_point_left = rand() % smallestSize;                                                         //<0;size)
+                    int crossover_point_right = crossover_point_left + (rand() % (smallestSize - crossover_point_left)) + 1;  //(left;size>
+                    // crossover
+                    for (int n = 0; n < crossover_point_left; n++) {
+                        newCar1.push_back(mother_child.routes[car1][n]);
+                        newCar2.push_back(father_child.routes[car2][n]);
                     }
-                }
-                // mutate
-                mutate(offspring, customers, time_matrix);
+                    for (int n = crossover_point_left; n < crossover_point_right; n++) {
+                        newCar1.push_back(father_child.routes[car2][n]);
+                        newCar2.push_back(mother_child.routes[car1][n]);
+                    }
+                    for (int n = crossover_point_right; n < mother_child.routes[car1].size(); n++)
+                        newCar1.push_back(mother_child.routes[car1][n]);
 
-                // save the child
-                if (save_child(offspring, bestResult, new_population, targetSize, customers, time_matrix))
-                    iterations_without_improvement = 0;
+                    for (int n = crossover_point_right; n < father_child.routes[car2].size(); n++)
+                        newCar2.push_back(father_child.routes[car2][n]);
+
+                    // fix the child if it is not valid
+                    mother_child.routes[car1].clear();
+                    if (!isRouteValid(newCar1, transport.vehicle_cap, time_matrix, customers)) {
+                        vector<int> tmp = try_new_routes(newCar1, customers, time_matrix);
+                        vector<vector<int>> fixed;
+                        if (tmp.size() == 0) {
+                            fixed = fix_routes(newCar1, customers, time_matrix, transport);
+                            mother_child.routes[car1].assign(fixed[0].begin(), fixed[0].end());
+                            for (int i = 1; i < fixed.size(); i++)
+                                mother_child.routes.push_back(fixed[i]);
+                        } else {
+                            mother_child.routes[car1].assign(tmp.begin(), tmp.end());
+                        }
+                    } else {
+                        mother_child.routes[car1].assign(newCar1.begin(), newCar1.end());
+                    }
+
+                    father_child.routes[car2].clear();
+                    if (!isRouteValid(newCar2, transport.vehicle_cap, time_matrix, customers)) {
+                        vector<int> tmp = try_new_routes(newCar2, customers, time_matrix);
+                        vector<vector<int>> fixed;
+                        if (tmp.size() == 0) {
+                            fixed = fix_routes(newCar1, customers, time_matrix, transport);
+                            father_child.routes[car2].assign(fixed[0].begin(), fixed[0].end());
+                            for (int i = 1; i < fixed.size(); i++)
+                                father_child.routes.push_back(fixed[i]);
+                        } else {
+                            father_child.routes[car2].assign(tmp.begin(), tmp.end());
+                        }
+                    } else {
+                        father_child.routes[car2].assign(newCar2.begin(), newCar2.end());
+                    }
+                    // final fix
+                    fix_crossed_child(mother_child, customers, time_matrix, transport);
+                    fix_crossed_child(father_child, customers, time_matrix, transport);
+                }
+                // mutation
+
+                mutate(mother_child, customers, time_matrix);
+                mutate(father_child, customers, time_matrix);
+
+                // select the best child
+                save_child(mother_child, bestResult, new_population, targetSize, customers, time_matrix);
+                save_child(father_child, bestResult, new_population, targetSize, customers, time_matrix);
+
                 chechIfDone(timer);
             }
         }
-        cout << "best: " << new_population[0].cost << " 2nd: " << new_population[1].cost << endl;
         population.clear();
         population.assign(new_population.begin(), new_population.end());
     }
