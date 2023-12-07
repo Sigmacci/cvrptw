@@ -11,8 +11,8 @@
                 "_UNICODE"
             ],
             "windowsSdkVersion": "10.0.22000.0",
-            "cStandard": "c17",
-            "compilerPath": "D:/Programs/MinGW/bin/g++.exe"
+            "cStandard": "c11",
+            "compilerPath": "C:/MinGW/bin/g++.exe"
         }
     ],
     "version": 4
