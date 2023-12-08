@@ -12,19 +12,19 @@
 #include <string>
 #include <vector>
 
-#define EXECUTION_TIME 60.0
-#define RUN_FOREVER false               // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
-#define ITERATIONS_OF_GRASP 280         // best tested value ??
-#define RAND_PERCENTAGE 60              //  ,0-100 rand of greedy
-#define ITERATIONS_OF_POINT_SEARCH 500  //
-
-#define NUMBER_OF_ORIGINAL_PARENTS 10
-#define NUMBER_OF_OFFSPRINGS 100      //
-#define ITERATIONS_OF_OFFSPRINGS 100  //
-#define GROWTH_FACTOR 1.1             //
+#define EXECUTION_TIME 180.0
 #define MAX_ITERATIONS_WITHOUT_IMPROVEMENT 20
-#define PERCENTAGE_OF_MUTATION 50
-#define PERCENTAGE_OF_CROSSOVER 1
+#define RUN_FOREVER false               // set true if you want to run forever, but remember to set ITERATIONS_OF_GRASP to 0
+#define ITERATIONS_OF_GRASP 280         // 280 optimal, best tested value ??
+#define RAND_PERCENTAGE 60              // 60 optimal, 0-100 rand of greedy
+#define ITERATIONS_OF_POINT_SEARCH 500  // 500 optimal
+
+#define NUMBER_OF_ORIGINAL_PARENTS 50  // 100 optimal
+#define NUMBER_OF_OFFSPRINGS 30        // 30 optimal
+#define ITERATIONS_OF_OFFSPRINGS 50    //
+#define GROWTH_FACTOR 1.2              // 1.2 optimal
+#define MUTATION_RATE 20               // 20 optimal, 0-100
+#define CROSSOVER_RATE 2               // 2 optimal, 0-100
 
 using namespace std;
 
@@ -125,15 +125,6 @@ void startFunction(Customers &customers, Transport &transport);
 
 CodeExecutionCutoffTimer timer(EXECUTION_TIME);
 
-// int ttt = 3;  //+2
-// void tmp(int n, double time) {
-//     ifstream file("solution.txt", ios::in);
-//     ofstream file2("zzzout.txt", ios::app);
-//     file2 << n << " " << file.rdbuf() << " " << time << endl;
-//     file.close();
-//     file2.close();
-// }
-
 int main(int argc, char *argv[]) {
     // check if file name is given
     if (argc != 2) {
@@ -161,32 +152,6 @@ int main(int argc, char *argv[]) {
     }
 
     startFunction(customers, transport);
-
-    // for (int n = 27; n <= 1002; n += 25) {
-    //     ttt = n;
-    //     // define variables for storing data
-    //     Transport transport;
-    //     Customers customers;
-    //     // read data from file
-    //     if (!read_data_from_file(argv[1], transport, customers)) {
-    //         cout << "Error in reading data from file" << endl;
-    //         return 1;
-    //     }
-
-    //     if (!valid(customers, transport)) {
-    //         ofstream file("solution.txt");
-    //         file << -1 << " " << setprecision(5) << fixed << 0.0 << "\n";
-    //         file.close();
-    //         cout << "Solution does not exist" << endl;
-    //         return 1;
-    //     }
-    //     cout << n << endl;
-    //     chrono::time_point<chrono::system_clock> start = chrono::system_clock::now();
-    //     grasp(transport, customers);
-    //     chrono::time_point<chrono::system_clock> end = chrono::system_clock::now();
-    //     chrono::duration<double> elapsed_seconds = end - start;
-    //     tmp(n - 2, elapsed_seconds.count());
-    // }
 
     cout << "Solution in file solution.txt" << endl;
     return 0;
@@ -239,13 +204,12 @@ bool read_data_from_file(string path, Transport &transport, Customers &customers
 }
 void saveToFile(vector<vector<int>> &solution, double cost) {
     ofstream file("solution.txt");
-    file << solution.size() << " " << setprecision(5) << fixed << cost << "\n";
-    // file << solution.size() << " " << setprecision(5) << fixed << cost;
+    file << solution.size() << " " << setprecision(5) << fixed << cost << endl;
     for (int i = 0; i < solution.size(); i++) {
         for (int j = 0; j < solution[i].size(); j++) {
             file << solution[i][j] << " ";
         }
-        file << "\n";
+        file << endl;
     }
     file.close();
 }
@@ -461,6 +425,44 @@ typedef struct {
     vector<vector<int>> routes;
     double cost;
 } pop_result;
+void fix_crossed_child(pop_result &child, Customers &customers, double **time_matrix, Transport &transport) {
+    bool points[customers.customers.size() - 1] = {false};
+    for (int n = child.routes.size() - 1; n >= 0; n--) {
+        for (int m = child.routes[n].size() - 1; m >= 0; m--) {
+            int tmp = child.routes[n][m];
+            if (points[child.routes[n][m] - 1]) {
+                child.routes[n].erase(child.routes[n].begin() + m);
+                if (child.routes[n].empty()) {
+                    child.routes.erase(child.routes.begin() + n);
+                }
+            }
+            points[tmp - 1] = true;
+        }
+    }
+    vector<int> missing_points;
+    for (int n = 0; n < customers.customers.size() - 1; n++)
+        if (!points[n])
+            missing_points.push_back(n + 1);
+    if (missing_points.empty()) return;
+    if (missing_points.size() == 1) {
+        child.routes.push_back(missing_points);
+        return;
+    }
+    Transport tmp_transport;
+    tmp_transport.vehicle_cap = transport.vehicle_cap;
+    tmp_transport.x_cord_of_dispatcher = transport.x_cord_of_dispatcher;
+    tmp_transport.y_cord_of_dispatcher = transport.y_cord_of_dispatcher;
+
+    Customers tmp_customers;
+    tmp_customers.customers.push_back(customers.customers[0]);
+    for (int n = 0; n < missing_points.size(); n++) {
+        tmp_customers.customers.push_back(customers.customers[missing_points[n]]);
+    }
+    double tmpval;
+    vector<vector<int>> result = greedy_randomized(tmp_transport, tmp_customers, time_matrix, &tmpval);
+    for (int i = 0; i < result.size(); i++)
+        child.routes.push_back(result[i]);
+}
 bool save_child(pop_result &child, pop_result &bestResult, vector<pop_result> &population, int targetSize, Customers &customers, double **time_matrix) {
     child.cost = cost(child.routes, customers, time_matrix);
     if (child.cost != -1) {
@@ -487,7 +489,7 @@ bool save_child(pop_result &child, pop_result &bestResult, vector<pop_result> &p
     return false;
 }
 void mutate(pop_result &child, Customers &customers, double **time_matrix) {
-    for (int k = 0; k < (PERCENTAGE_OF_MUTATION * child.routes.size()) / 100; k++) {
+    for (int k = 0; k < (MUTATION_RATE * child.routes.size()) / 100; k++) {
         // choose random car to mutate
         int car = rand() % child.routes.size();
         if (child.routes[car].size() >= 2) {
@@ -536,7 +538,7 @@ pop_result genetic_algorithm(Transport &transport, Customers &customers, double 
     int iter = 0, iterations_without_improvement = 0;
     while (iter++ < ITERATIONS_OF_OFFSPRINGS && ++iterations_without_improvement <= MAX_ITERATIONS_WITHOUT_IMPROVEMENT) {
         int targetSize = (GROWTH_FACTOR * population.size());
-        cout << "iteration: " << iter << " pop size: " << population.size() << "target: " << targetSize << endl;
+        cout << "iteration: " << iter << " pop size: " << population.size() << " target: " << targetSize << endl;
         vector<pop_result> new_population;
         // generate x offsprings from current population
         for (int parent = 0; parent < population.size(); parent++) {
@@ -546,7 +548,7 @@ pop_result genetic_algorithm(Transport &transport, Customers &customers, double 
                 // choose two random cars
                 offspring.routes.assign(population[parent].routes.begin(), population[parent].routes.end());
                 if (population[parent].routes.size() > 1) {
-                    for (int q = 0; q < (PERCENTAGE_OF_CROSSOVER * population[parent].routes.size()) / 100; q++) {
+                    for (int q = 0; q < ceil((CROSSOVER_RATE * (double)population[parent].routes.size()) / 100); q++) {
                         // for (int q = 0; q < 2; q++) {
                         int car1 = rand() % population[parent].routes.size();
                         int car2 = rand() % population[parent].routes.size();
@@ -608,6 +610,7 @@ pop_result genetic_algorithm(Transport &transport, Customers &customers, double 
                         } else {
                             offspring.routes[car2].assign(newCar2.begin(), newCar2.end());
                         }
+                        fix_crossed_child(offspring, customers, time_matrix, transport);
                     }
                 }
                 // mutate
